@@ -1,0 +1,120 @@
+#!/bin/bash -ex
+
+# Quickish hack to allow syncing a historic manifest in build-manifests.
+# This will produce "build-manifest.xml", "build-properties.json", and
+# "build.properties" (along with "build-manifests/") in the current
+# working directory, and the repo sync in ${OUTDIR} (defaults to current
+# working directory).
+
+# If a <VERSION>.properties file exists in the manifest repo, it will be
+# copied as the final "build.properties". If that .properties file has a
+# non-empty value for PATCH_VIA_GERRIT_OPTS, this script will download
+# patch_via_gerrit and apply the named changes to the repo checkout.
+
+# If BLD_NUM >= 30000 it is assumed to be a toy build, meaning that it
+# will search for the manifest and properties in the toy-build-manifests
+# repo instead of the normal build-manifests repo.
+
+# Known limitations: it cannot produce the same build-properties file
+# as the original build did, as it does not have access to the information
+# from product-metadata.json as of the time of the build. Perhaps this
+# information should be stored in the build manifest as well. As it is,
+# currently this script only produces the basic info - PRODUCT, RELEASE,
+# VERSION, BLD_NUM, and PROD_NAME, as well as PRODUCT_PATH which is presumed
+# to be the same as PRODUCT with :: replaced by /.
+# It also does not produce the CHANGELOG file.
+
+PRODUCT=$1
+RELEASE=$2
+VERSION=$3
+BLD_NUM=$4
+OUTDIR=$5
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+. "${SCRIPT_DIR}/../utilities/shell-utils.sh"
+WORKDIR=$(pwd)
+
+chk_set PRODUCT
+chk_set RELEASE
+chk_set VERSION
+chk_set BLD_NUM
+
+if [ ! -z "${OUTDIR}" ]; then
+    # Create fresh outdir
+    rm -rf "${OUTDIR}"
+    mkdir -p "${OUTDIR}"
+else
+    OUTDIR=.
+    WORKDIR=.
+fi
+
+PRODUCT_PATH=${PRODUCT/::/\/}
+PROD_NAME=$(basename $PRODUCT_PATH)
+
+# Pull from the appropriate build-manifests repo - normal for build numbers
+# under 30000, or toy for over 30000
+if [ ${BLD_NUM} -lt 30000 ]; then
+    BUILD_MANI_REPO=https://github.com/couchbase/build-manifests
+else
+    BUILD_MANI_REPO=https://github.com/couchbasebuild/toy-build-manifests
+fi
+BUILD_MANI_DIR=$(basename ${BUILD_MANI_REPO})
+
+if [ ! -e ${BUILD_MANI_DIR} ]; then
+    git clone ${BUILD_MANI_REPO} ${BUILD_MANI_DIR}
+fi
+pushd ${BUILD_MANI_DIR}
+git fetch --all
+SHA=$(git log -1 --format='%H' --grep "^$PRODUCT $RELEASE build $VERSION-$BLD_NUM$")
+MANIFEST=${PRODUCT_PATH}/${RELEASE}/${VERSION}.xml
+PROPERTIES=$(pwd)/${PRODUCT_PATH}/${RELEASE}/${VERSION}.properties
+popd
+
+pushd "${OUTDIR}"
+echo "Syncing manifest $MANIFEST at $SHA"
+echo ================================
+repo init -u "${WORKDIR}/${BUILD_MANI_DIR}" -b $SHA -g all -m $MANIFEST
+repo sync --jobs=8
+repo manifest -r > manifest.xml
+echo
+
+# If pvg options available, patch away
+if [ -e "${PROPERTIES}" ]; then
+    eval $(sed -e 's/=\(.*\)/="\1"/' "${PROPERTIES}")
+    if [ ! -z "${PATCH_VIA_GERRIT_OPTS}" ]; then
+        "${SCRIPT_DIR}/../utilities/patch_via_gerrit" \
+            ${PATCH_VIA_GERRIT_OPTS} -d \
+            -c ~/.ssh/patch_via_gerrit.ini \
+            -s .
+    fi
+fi
+popd
+
+echo "Creating properties files"
+echo =========================
+cp "${OUTDIR}/manifest.xml" build-manifest.xml
+cat <<EOF > build-properties.json
+{
+  "PRODUCT": "$PRODUCT",
+  "RELEASE": "$RELEASE",
+  "VERSION": "$VERSION",
+  "BLD_NUM": $BLD_NUM,
+  "PROD_NAME": "$PROD_NAME",
+  "PRODUCT_PATH": "$PRODUCT_PATH"
+}
+EOF
+if [ -e "${PROPERTIES}" ]; then
+    cp "${PROPERTIES}" build.properties
+else
+    cat <<EOF > build.properties
+PRODUCT=$PRODUCT
+RELEASE=$RELEASE
+VERSION=$VERSION
+BLD_NUM=$BLD_NUM
+PROD_NAME=$PROD_NAME
+PRODUCT_PATH=$PRODUCT_PATH
+EOF
+fi
+
+echo
+echo "Done!"
