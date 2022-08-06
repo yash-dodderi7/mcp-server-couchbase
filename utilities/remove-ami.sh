@@ -8,7 +8,7 @@ function aws_filter_images {
         exit 1
     fi
     local result=$(aws ec2 describe-images \
-        --filters "Name=name,Values=${image_pattern}" "Name=tag:owner,Values=build-team" \
+        --filters "Name=name,Values=${image_pattern}" "Name=tag:creator,Values=build-team" \
         --query "Images[?CreationDate<\`${start_date}\`].[ImageId, BlockDeviceMappings[0].Ebs.SnapshotId]" \
         --output text)
     echo "${result}"

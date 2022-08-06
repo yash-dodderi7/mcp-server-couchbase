@@ -54,11 +54,11 @@ source "amazon-ebs" "cc" {
   }
   tags = {
     service     = "${var.product_name}"
-    owner       = "build-team"
+    creator       = "build-team"
   }
   snapshot_tags = {
     service     = "${var.product_name}"
-    owner       = "build-team"
+    creator       = "build-team"
   }
   ssh_username = "ec2-user"
 }
