@@ -12,6 +12,8 @@ class CouchbaseCloud:
         self.s3=config['s3']
         self.roles=config['roles']
 
+    #https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
+    #Role chaining limits has a max of one hour.  Duration larger than 3600 sec will fail.
     def assume_role (self, env):
         client = self.session.client('sts')
         result = client.assume_role(

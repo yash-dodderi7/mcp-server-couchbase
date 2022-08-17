@@ -54,9 +54,13 @@ source "amazon-ebs" "cc" {
   }
   tags = {
     service     = "${var.product_name}"
+    creator       = "build-team"
+    version       = "${var.product_version}-${var.product_bld_num}"
   }
   snapshot_tags = {
     service     = "${var.product_name}"
+    creator       = "build-team"
+    version       = "${var.product_version}-${var.product_bld_num}"
   }
   ssh_username = "ec2-user"
 }
