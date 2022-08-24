@@ -10,7 +10,7 @@ LimitNOFILE=1024
 
 Restart=on-failure
 RestartSec=10
-startLimitIntervalSec=60
+StartLimitIntervalSec=60
 
 WorkingDirectory=/home/dataapi
 ExecStart=/home/dataapi/rest-server --listenPort=8080
@@ -19,6 +19,7 @@ ExecStart=/home/dataapi/rest-server --listenPort=8080
 PermissionsStartOnly=true
 ExecStartPre=/usr/bin/mkdir -p /var/log/couchbase-data-api
 ExecStartPre=/usr/bin/chmod 755 /var/log/couchbase-data-api
+ExecStartPre=/usr/bin/curl -i -XPOST --max-time 5 http://localhost:12011/v1/service-start
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=couchbase-data-api

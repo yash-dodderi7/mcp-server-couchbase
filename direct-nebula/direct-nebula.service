@@ -8,7 +8,7 @@ User=nebula
 Group=nebula
 LimitNOFILE=1024
 
-Restart=always
+Restart=on-failure
 RestartSec=10
 StartLimitIntervalSec=60
 
@@ -19,6 +19,7 @@ ExecStart=/home/nebula/direct-nebula
 PermissionsStartOnly=true
 ExecStartPre=/usr/bin/mkdir -p /var/log/direct-nebula
 ExecStartPre=/usr/bin/chmod 755 /var/log/direct-nebula
+ExecStartPre=/usr/bin/curl -i -XPOST --max-time 5 http://localhost:12011/v1/service-start
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=directnebula
