@@ -11,7 +11,6 @@ function usage
     echo "  -a AMI Name: couchbase-data-api-test\n"
     echo "  -c AWS Config File: ~/.aws/config\n"
     echo "  -s AWS Shared Credentials File: ~/.aws/credentials\n"
-    echo "  -P if generating perf AMIs.  This option is specific to couchbse-server.\n"
     exit 1
 }
 
@@ -93,9 +92,8 @@ EOT
 ARCH="aarch64"
 AWS_SHARED_CREDENTIALS_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/credentials
 AWS_CONFIG_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/config
-PERF=false
 
-while getopts a:b:c:e:p:s:v:P opt
+while getopts a:b:c:e:p:s:v: opt
 do
     case ${opt} in
         a) AMI_NAME_OVERWRITE=${OPTARG}
@@ -112,8 +110,6 @@ do
            ;;
         v) VERSION=${OPTARG}
            ;;
-        P) PERF=true
-           ;;
         *) usgae
            ;;
     esac
@@ -124,26 +120,32 @@ if [[ -z ${PRODUCT} || -z ${VERSION} || -z ${BUILD_NUM} || -z ${AWS_PROFILE} ]];
 fi
 
 
-#https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
-#Role chaining limits has a max of one hour.
-#We need to make sure AMIs are created within an hour.  Hence, server AMIs need to be broken into groups
+# Current Supported Products:
+# 	couchbase-cloud-server couchbase-cloud-backup couchbase-serverless-server couchbase-serverless-backup
+#       couchbase-cloud-server-perf couchbase-cloud-backup-perf couchbase-serverless-server-perf couchbase-serverless-backup-perf
+#       direct-nebula
+#       couchbase-data-api
 
-cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}
-if [[ ${PRODUCT} == "couchbase-server" ]]; then
-    PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT}-enterprise-${VERSION}-${BLD_NUM}-amzn2.x86_64.rpm"
-    if [[ ${PERF} == "true" ]]; then
-        products="couchbase-cloud-server-perf couchbase-cloud-backup-perf couchbase-serverless-server-perf couchbase-serverless-backup-perf"
-        packer_file="couchbase-server-perf.pkr.hcl"
-    else
-        products="couchbase-cloud-server couchbase-cloud-backup couchbase-serverless-server couchbase-serverless-backup"
-        packer_file="couchbase-server.pkr.hcl"
-    fi
-    download_files
-    for p in ${products}; do
-        create_ami ${p} ${packer_file}
-    done
-else
-    PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT}_${VERSION}-${BLD_NUM}-linux.${ARCH}.tar.gz"
-    download_files
-    create_ami ${PRODUCT} ${PRODUCT}.pkr.hcl
-fi
+case ${PRODUCT} in
+    couchbase-cloud*|couchbase-serverless*)
+        if [[ ${PRODUCT} == *"perf" ]]; then
+            packer_file="couchbase-server-perf.pkr.hcl"
+        else
+            packer_file="couchbase-server.pkr.hcl"
+        fi
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-amzn2.x86_64.rpm"
+        cd ${WORKSPACE}/cloud-build-tools/couchbase-server
+        download_files
+        create_ami ${PRODUCT} ${packer_file}
+        ;;
+    direct-nebula|couchbase-data-api)
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT}_${VERSION}-${BLD_NUM}-linux.${ARCH}.tar.gz"
+        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}
+        download_files
+        create_ami ${PRODUCT} ${PRODUCT}.pkr.hcl
+        ;;
+    *)
+        echo "${PRODUCT} is not supported"
+        exit -1
+        ;;
+esac

@@ -41,8 +41,6 @@ source "amazon-ebs" "cc" {
   ami_name      = "${var.ami_name}"
   instance_type = "t2.micro"
   region        = "${var.region}"
-  // No permission to create SG on stage, have to use an existing SG
-  //security_group_id = "sg-082125705b63f8216"
   source_ami_filter {
     filters = {
       name                = "amzn2-ami-hvm-2.0.*-x86_64-gp2"
