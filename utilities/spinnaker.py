@@ -37,26 +37,32 @@ def trigger_pipeline(session, spinnaker_config, pipeline_url, data):
     ref_url=spinnaker_config['api_base']+req.json()['ref']
     result=get_pipeline_result(session, ref_url)
     if result['status'] != 'SUCCEEDED':
-        sys.exit(f"{pipeline_url} finished unsuccessfully. \
-                      See {ref_url} for detail.")
+        sys.exit(f"{pipeline_url} finished unsuccessfully. See {ref_url} for detail.")
     logging.info(f"{pipeline_url} finished successfully.")
 
 # Spinnaker URLs
 spinnaker_config = {
-    "api_base"          : "https://preprod.spinnaker-stage.cloud.couchbase.com/api/v1",
+    "api_base"              : "https://preprod.spinnaker-stage.cloud.couchbase.com/api/v1",
     "login_path"            : "/login",
     "find_available_sandbox": "/pipelines/sandboxes/find-available-sandboxes",
-    "deploy-control-plane"  : "deploy-control-plane"
+    "deploy-control-plane"  : {
+        "url"               : "deploy-control-plane",
+        "data"              :{
+            "parameters":  {
+                "branch"    : "main",
+                "revision"  : "main"
+            }
+        }
+    },
+    "deploy-applications"  : {
+        "url"               : "deploy-applications",
+        "data"              : {
+            "parameters":  {
+                "imageTag"    : "main"
+            }
+        }
+    }
 }
-
-# Control plane source code:
-# Application Branch:
-# Infrastructure Branch:
-control_plane_data = {
-    "branch"    : "main",
-    "revision"  : "main"
-}
-
 
 # Main
 # Current script only deploys latest CP on specific sandbox env.
@@ -64,8 +70,17 @@ control_plane_data = {
 parser = argparse.ArgumentParser()
 parser.add_argument('--token', required=True, help='Github Personal Access Token.')
 parser.add_argument('--sandbox', required=True, help='Spinnaker application, i.e. sbx-30')
+parser.add_argument('--pipeline', required=False, help='Pipeline job, i.e. deploy-applications', default="deploy-applications")
+
 args = parser.parse_args()
 
 session=create_session(args.token, spinnaker_config)
-pipeline_url = f"{spinnaker_config['api_base']}/pipelines/{args.sandbox}/{spinnaker_config['deploy-control-plane']}"
-trigger_pipeline(session, spinnaker_config, pipeline_url, control_plane_data)
+if args.pipeline == "find_available_sandbox":
+    pipeline_url = f"{spinnaker_config['api_base']}/pipelines/{args.sandbox}/{spinnaker_config['find_available_sandbox']}"
+else:
+    if args.pipeline in spinnaker_config.keys():
+        pipeline_url = f"{spinnaker_config['api_base']}/pipelines/{args.sandbox}/{args.pipeline}"
+        pipeline_data = spinnaker_config[args.pipeline].get('data', '')
+    else:
+        sys.exit(f"Pipeline {args.pipeline} is not supported.")
+trigger_pipeline(session, spinnaker_config, pipeline_url, pipeline_data)
