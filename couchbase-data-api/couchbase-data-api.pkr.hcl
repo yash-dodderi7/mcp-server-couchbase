@@ -38,6 +38,8 @@ locals {
   node_exporter_version = "v1.1.2"
   node_exporter_package = "node_exporter-1.1.2.linux-arm64"
 
+  fluent-bit_version = "1.9"
+
   ## The dp service that is being put on the image.
   dp_service = "dp-serverless"
 
@@ -119,6 +121,11 @@ build {
    source = "dp-firewall.service"
   }
 
+  provisioner "file" {
+   destination = "/tmp/fluent-bit.conf"
+   source = "fluent-bit.conf"
+  }
+
   provisioner "shell" {
     inline = [
       "sleep 10",
@@ -160,7 +167,13 @@ build {
       "sudo chmod +x /home/ec2-user/iptables-firewall.sh",
       "sudo chown root:root /home/ec2-user/iptables-firewall.sh",
       "sudo systemctl start dp-firewall.service",
-      "sudo systemctl enable dp-firewall.service"
+      "sudo systemctl enable dp-firewall.service",
+      // Install and enable fluent-bit
+      // https://docs.fluentbit.io/manual/installation/linux/amazon-linux#single-line-install
+      "sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/${local.fluent-bit_version}/install.sh | sh",
+      "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf",
+      "sudo mkdir /etc/systemd/system/fluent-bit.service.d",
+      "sudo systemctl enable fluent-bit.service"
     ]
   }
 }
