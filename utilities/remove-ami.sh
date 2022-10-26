@@ -29,13 +29,13 @@ function aws_filter_instances {
 
 function usage
 {
-  echo "\nUsage: $0 -p <Product> -v <Version> \n"
-  echo "  -p Product:  couchbase-cloud|couchbase-serverless|direct-nebula|couchase-data-api \n"
-  echo "  -v Version: i.e. 7.2.0, 0.1 \n"
+  echo "Usage: $0 -p <Product> -v <Version>"
+  echo "  -p Product:  couchbase-cloud|couchbase-serverless|direct-nebula|couchase-data-api"
+  echo "  -v Version: i.e. 7.5.0, 0.1"
 }
 
 older_than=$(date +"%Y-%m-%d" -d "14 day ago")
-VERSION="7.2.0"
+VERSION="7.5.0"
 PRODUCT="couchbase-cloud"
 
 while getopts a:b:e:p:r:v:nd opt
@@ -46,12 +46,11 @@ do
     v) VERSION=${OPTARG}
       ;;
     *)
-      usgae
+      usage
       ;;
     esac
 done
 
-set -x
 images=$(aws_filter_images ${older_than} ${PRODUCT}-*${VERSION}*)
 echo "${images}" | while read -r ami snapshot; do
     echo "ami:$ami"

@@ -2,30 +2,29 @@
 
 function usage
 {
-    echo "\nUsage: $0 -p <Product> -v <Version> -b <Build Number> -a <AMI Name> -c <AWS Config File> -s <AWS Shred Credentials File> -n\n"
-    echo "  -p Product:  direct-nabula|couchbase-data-api \n"
-    echo "  -v Version: i.e. 7.2.0, 3.1.0 \n"
-    echo "  -b Build Number: i.e. 123 \n"
-    echo "  -e AWS_PROFILE: profile name specified in aws config\n"
-    echo "  optional: \n"
-    echo "  -a AMI Name: couchbase-data-api-test\n"
-    echo "  -c AWS Config File: ~/.aws/config\n"
-    echo "  -s AWS Shared Credentials File: ~/.aws/credentials\n"
+    echo "Usage: $0 -p <Product> -v <Version> -b <Build Number> -a <AMI Name> -c <AWS Config File> -s <AWS Shred Credentials File> -n"
+    echo "  -p Product:  direct-nabula|couchbase-data-api"
+    echo "  -v Version: i.e. 7.5.0, 3.1.0"
+    echo "  -b Build Number: i.e. 123"
+    echo "  -e AWS_PROFILE: profile name specified in aws config"
+    echo "  optional:"
+    echo "  -a AMI Name: couchbase-data-api-test"
+    echo "  -r ARCH: x86_64 or aarch64"
+    echo "  -c AWS Config File: ~/.aws/config"
+    echo "  -s AWS Shared Credentials File: ~/.aws/credentials"
     exit 1
 }
 
 function download_files
 {
-    if [ ! -f packer ]; then
-        curl --fail -L https://releases.hashicorp.com/packer/1.8.1/packer_1.8.1_linux_amd64.zip -o packer.zip
-        unzip packer.zip
-        chmod +x packer
-    fi
-    export PATH=`pwd`:$PATH
-
-    cp ${WORKSPACE}/cloud-build-tools/utilities/dp-*.gz .
-
     curl --fail -LO ${PRODUCT_PKG_URL}
+    # https://couchbasecloud.atlassian.net/browse/AV-47166
+    # Add debug rpm to serverless AMI temporarily.  This will be removed once the product is more stable.
+    if [[ ${PRODUCT} == "couchbase-serverless-"* ]]; then
+        PRODUCT_DEBUG_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-debuginfo-${VERSION}-${BLD_NUM}-amzn2.${ARCH}.rpm"
+        curl --fail -LO ${PRODUCT_DEBUG_PKG_URL}
+    fi
+    cp -rp ${WORKSPACE}/cloud-build-tools/utilities/agents .
 }
 
 function create_ami
@@ -40,8 +39,8 @@ function create_ami
 
 #set environment variables used by packer file
 #make sure .env is created fresh
-rm .env
-cat <<EOT >> .env
+rm .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+cat <<EOT >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
 export PKR_VAR_region=us-east-1
 export PKR_VAR_product_name=${AMI_PRODUCT}
 export PKR_VAR_product_version=${VERSION}
@@ -54,26 +53,30 @@ EOT
     #packer variables specific for couchbase-server
     case ${AMI_PRODUCT} in
         couchbase-serverless-server*) 
-            echo "export PKR_VAR_enableServerless=true" >> .env
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env
+            echo "export PKR_VAR_enableServerless=true" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-serverless.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-serverless-backup*)
-            echo "export PKR_VAR_enableServerless=true" >> .env
-            echo "export PKR_VAR_dp_service=dp-backup" >> .env
+            echo "export PKR_VAR_enableServerless=true" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-backup.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-server*)
-            echo "export PKR_VAR_enableServerless=false" >> .env
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env
+            echo "export PKR_VAR_enableServerless=false" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-agent.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-backup*)
-            echo "export PKR_VAR_enableServerless=false" >> .env
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env
+            echo "export PKR_VAR_enableServerless=false" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-backup.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         *)
            ;;
     esac
 
-    source .env
+    source .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
     echo "checking AMI on ${AWS_PROFILE}"
     check_image=$(AWS_PROFILE=${AWS_PROFILE} aws ec2 describe-images \
         --owners self \
@@ -82,7 +85,11 @@ EOT
         --output text)
     if [[ -z $check_image ]]; then
         echo "Creating ${AMI_NAME}..."
-        AWS_PROFILE=${AWS_PROFILE} packer build ${PACKER_FILE}
+        AWS_PROFILE=${AWS_PROFILE} packer build ${PACKER_FILE} || { echo "Failed to create AMI ${AMI_NAME}" ; exit 1; }
+
+        # Keep a list of AMIs created.
+        # It is currently used to determinie if we should trigger qe-jenkins sanity_tests
+        echo "${AMI_NAME}" >> ${WORKSPACE}/AMIS_CREATED
     else
         echo "${AMI_NAME} already exist on ${AWS_PROFILE}"
     fi
@@ -93,7 +100,7 @@ ARCH="aarch64"
 AWS_SHARED_CREDENTIALS_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/credentials
 AWS_CONFIG_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/config
 
-while getopts a:b:c:e:p:s:v: opt
+while getopts a:b:c:e:p:r:s:v: opt
 do
     case ${opt} in
         a) AMI_NAME_OVERWRITE=${OPTARG}
@@ -106,11 +113,13 @@ do
            ;;
         p) PRODUCT=${OPTARG}
            ;;
+        r) ARCH=${OPTARG}
+           ;;
         s) AWS_SHARED_CREDENTIALS_FILE=${OPTARG}
            ;;
         v) VERSION=${OPTARG}
            ;;
-        *) usgae
+        *) usage
            ;;
     esac
 done
@@ -118,7 +127,6 @@ done
 if [[ -z ${PRODUCT} || -z ${VERSION} || -z ${BUILD_NUM} || -z ${AWS_PROFILE} ]]; then
     usage
 fi
-
 
 # Current Supported Products:
 # 	couchbase-cloud-server couchbase-cloud-backup couchbase-serverless-server couchbase-serverless-backup
@@ -133,9 +141,15 @@ case ${PRODUCT} in
         else
             packer_file="couchbase-server.pkr.hcl"
         fi
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-amzn2.x86_64.rpm"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-amzn2.${ARCH}.rpm"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server
         download_files
+
+        #Temporarily add "x86_64" to AMI name for Intel.
+        #Per discussion with the team, we will stop building x86_64 after offically switch over to arm64.
+        if [[ ${ARCH} == "x86_64" ]]; then
+            AMI_NAME_OVERWRITE=${PRODUCT}-${VERSION}-${BLD_NUM}-x86_64
+        fi
         create_ami ${PRODUCT} ${packer_file}
         ;;
     direct-nebula|couchbase-data-api)

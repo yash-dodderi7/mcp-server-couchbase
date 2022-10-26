@@ -33,10 +33,13 @@ variable "product_arch" {
 }
 
 locals {
-  process-exporter_version = "v0.7.5"
-  process-exporter_package = "process-exporter_0.7.5_linux_arm64"
-  node_exporter_version = "v1.1.2"
-  node_exporter_package = "node_exporter-1.1.2.linux-arm64"
+  process-exporter_version = "0.7.5"
+  process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_arm64"
+  node_exporter_version = "1.1.2"
+  node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-arm64"
+
+  ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
+  instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
 
   fluent-bit_version = "1.9"
 
@@ -49,11 +52,11 @@ locals {
 
 source "amazon-ebs" "cc" {
   ami_name      = "${var.ami_name}"
-  instance_type = "t4g.micro"
+  instance_type = "${local.instance_type}"
   region        = "${var.region}"
   source_ami_filter {
     filters = {
-      name                = "amzn2-ami-hvm-2.0.*-arm64-gp2"
+      name                = "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
     }
@@ -61,13 +64,13 @@ source "amazon-ebs" "cc" {
     owners      = ["amazon"]
   }
   tags = {
-    service     = "${var.product_name}"
     creator     = "build-team"
+    arch        = "${local.ami_arch}"
     version     = "${var.product_version}-${var.product_bld_num}"
   }
   snapshot_tags = {
-    service     = "${var.product_name}"
     creator     = "build-team"
+    arch        = "${local.ami_arch}"
     version     = "${var.product_version}-${var.product_bld_num}"
   }
   ssh_username = "ec2-user"
@@ -79,7 +82,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "${local.dp_service}.gz"
+    source      = "agents/${var.product_arch}/${local.dp_service}.gz"
   }
 
   provisioner "file" {
@@ -126,6 +129,11 @@ build {
    source = "fluent-bit.conf"
   }
 
+  provisioner "file" {
+   destination = "/tmp/fluent-bit.repo"
+   source = "fluent-bit.repo"
+  }
+
   provisioner "shell" {
     inline = [
       "sleep 10",
@@ -142,15 +150,15 @@ build {
       "sudo systemctl enable ${var.product_name}.service",
       "sudo rm /tmp/${var.product_name}_${var.product_version}-${var.product_bld_num}-${var.product_platform}.${var.product_arch}.tar.gz",
       // Install and start node exporter
-      "sudo wget https://github.com/prometheus/node_exporter/releases/download/${local.node_exporter_version}/${local.node_exporter_package}.tar.gz -P /tmp/",
-      "sudo tar xvfz /tmp/${local.node_exporter_package}.tar.gz -C /tmp",
-      "sudo rm /tmp/${local.node_exporter_package}.tar.gz",
-      "sudo mv /tmp/${local.node_exporter_package}/node_exporter /home/ec2-user/node_exporter",
+      "sudo wget https://github.com/prometheus/node_exporter/releases/download/v${local.node_exporter_version}/${local.node_exporter_package}.tar.gz -P /tmp/",
+      "sudo tar xvfz /tmp/${local.node_exporter_package}.tar.gz -C /home/ec2-user/ --strip-components=1 ${local.node_exporter_package}/node_exporter",
+      "sudo rm -f /tmp/${local.node_exporter_package}.tar.gz",
+
       "sudo chown ec2-user:ec2-user /home/ec2-user/node_exporter",
       "sudo mv /tmp/node-exporter.service /lib/systemd/system/node-exporter.service",
       "sudo systemctl enable node-exporter.service",
       // Install and enable process exporter
-      "sudo wget https://github.com/ncabatoff/process-exporter/releases/download/${local.process-exporter_version}/${local.process-exporter_package}.rpm -P /tmp/",
+      "sudo wget https://github.com/ncabatoff/process-exporter/releases/download/v${local.process-exporter_version}/${local.process-exporter_package}.rpm -P /tmp/",
       "sudo rpm --install /tmp/${local.process-exporter_package}.rpm",
       "sudo rm /tmp/${local.process-exporter_package}.rpm",
       "sudo mv /tmp/process-exporter.service /lib/systemd/system/process-exporter.service",
@@ -170,9 +178,9 @@ build {
       "sudo systemctl enable dp-firewall.service",
       // Install and enable fluent-bit
       // https://docs.fluentbit.io/manual/installation/linux/amazon-linux#single-line-install
-      "sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/${local.fluent-bit_version}/install.sh | sh",
+      "sudo mv /tmp/fluent-bit.repo /etc/yum.repos.d/.",
+      "sudo yum install fluent-bit -y",
       "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf",
-      "sudo mkdir /etc/systemd/system/fluent-bit.service.d",
       "sudo systemctl enable fluent-bit.service"
     ]
   }
