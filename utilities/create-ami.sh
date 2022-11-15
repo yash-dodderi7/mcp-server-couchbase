@@ -135,7 +135,14 @@ fi
 #       couchbase-data-api
 
 case ${PRODUCT} in
-    couchbase-cloud*|couchbase-serverless*)
+    couchbase-cloud*)
+        packer_file="couchbase-server.pkr.hcl"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-amzn2.${ARCH}.rpm"
+        cd ${WORKSPACE}/cloud-build-tools/couchbase-server
+        download_files
+        create_ami ${PRODUCT} ${packer_file}
+        ;;
+    couchbase-serverless*)
         if [[ ${PRODUCT} == *"perf" ]]; then
             packer_file="couchbase-server-perf.pkr.hcl"
         else
