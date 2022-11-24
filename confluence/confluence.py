@@ -8,7 +8,6 @@ from atlassian import Confluence
 import sys
 import argparse
 import logging
-from datetime import datetime
 from bs4 import BeautifulSoup
 import re
 from tabulate import tabulate
@@ -44,11 +43,14 @@ def get_table_data(table):
     return table_data
 
 
+# Reconstruct confluence content with new data.
+# Limit the number of table rows to 15 so that confluence page is not too long.
+
 def construct_confluence_content(tables):
     data=''
     for product, rows in tables.items():
         data += f'<h1>{product}</h1>'
-        data += tabulate(rows, tablefmt = 'unsafehtml', headers='firstrow')
+        data += tabulate(rows[:15], tablefmt = 'unsafehtml', headers='firstrow')
     return data
 
 
@@ -63,32 +65,26 @@ parser.add_argument('--test_result', required=True,
                     help='Validation test result.')
 parser.add_argument('--test_link', required=True,
                     help='URL to validation job.')
+parser.add_argument('--note', required=False,
+                    help='Optional notes, i.e. reason of test failures.')
 args = parser.parse_args()
 ami_entry = {}
 tables = {}
-now = datetime.now()
 
 confluence_url = "https://hub.internal.couchbase.com/confluence"
 changelog_url_base = "http://changelog.build.couchbase.com/"
 builddb_api_base = "http://dbapi.build.couchbase.com:8000/v1/products"
 
-ami_entry['date'] = now.strftime("%m/%d/%Y")
 ami_entry['name'] = args.ami_name
-if args.test_result == 'SUCCESS':
-    ami_entry['status'] = 'Available'
-else:
-    ami_entry['status'] = ''
+ami_entry['note'] = args.note
 ami_entry['test_result'] = args.test_result
 ami_entry['test_link'] = args.test_link
+ami_entry['changelog'] = ''
 
 [product, version, bld_num] = list(
     filter(None, re.split(r'-([0-9.]+)', args.ami_name)))
-previous_bld_num = str(int(bld_num) - 1)
 if 'server' in product:
     product = 'couchbase-server'
-    ami_entry['changelog'] = f'{changelog_url_base}?product=couchbase-server&amp;fromVersion={version}&amp;fromBuild={previous_bld_num}&amp;toVersion={version}&amp;toBuild={bld_num}'
-else:
-    ami_entry['changelog'] = f'{changelog_url_base}?product={product}&amp;fromVersion={version}&amp;fromBuild={previous_bld_num}&amp;toVersion={version}&amp;toBuild={bld_num}'
 
 # Create confluence session
 confluence = create_session(confluence_url, args.userid, args.password)
@@ -102,8 +98,17 @@ content = confluence.get_page_by_id(page_id, expand="title,body.storage")
 tables['couchbase-server'] = get_table_data(server_table)
 tables['direct-nebula'] = get_table_data(dn_table)
 tables['couchbase-data-api'] = get_table_data(dapi_table)
+
+for i in range (1, len(tables[product])):
+    if tables[product][i][0].strip() != ami_entry['name'].strip():
+        previous_ami=tables[product][i][0].strip()
+        [prod_name, version, previous_bld_num] = list(
+            filter(None, re.split(r'-([0-9.]+)', previous_ami)))
+        ami_entry['changelog'] = f'{changelog_url_base}?product={product}&amp;fromVersion={version}&amp;fromBuild={previous_bld_num}&amp;toVersion={version}&amp;toBuild={bld_num}'
+        break
+
 tables[product].insert(1, [ami_entry['name'], f'<a href=\"{ami_entry["changelog"]}\">changes from {previous_bld_num}</a>',
-                       ami_entry['test_result'], f'<a href=\"{ami_entry["test_link"]}\">qe jenkins link</a>', ami_entry['status'], ami_entry['date']])
+                       ami_entry['test_result'], f'<a href=\"{ami_entry["test_link"]}\">qe jenkins link</a>', ami_entry['note']])
 
 confluence_data = construct_confluence_content(tables)
 
