@@ -2,14 +2,15 @@
 
 function usage
 {
-    echo "Usage: $0 -p <Product> -v <Version> -b <Build Number> -a <AMI Name> -c <AWS Config File> -s <AWS Shred Credentials File> -n"
+    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -a <AMI Name> -c <AWS Config File> -s <AWS Shared Credentials File>"
     echo "  -p Product:  direct-nabula|couchbase-data-api"
+    echo "  -r RELEASE: elixir"
     echo "  -v Version: i.e. 7.5.0, 3.1.0"
     echo "  -b Build Number: i.e. 123"
     echo "  -e AWS_PROFILE: profile name specified in aws config"
     echo "  optional:"
     echo "  -a AMI Name: couchbase-data-api-test"
-    echo "  -r ARCH: x86_64 or aarch64"
+    echo "  -d ARCH: aarch64 or x86_64"
     echo "  -c AWS Config File: ~/.aws/config"
     echo "  -s AWS Shared Credentials File: ~/.aws/credentials"
     exit 1
@@ -100,20 +101,22 @@ ARCH="aarch64"
 AWS_SHARED_CREDENTIALS_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/credentials
 AWS_CONFIG_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/config
 
-while getopts a:b:c:e:p:r:s:v: opt
+while getopts a:b:c:d:e:p:r:s:v: opt
 do
     case ${opt} in
         a) AMI_NAME_OVERWRITE=${OPTARG}
            ;;
-        b) BUILD_NUM=${OPTARG}
+        b) BLD_NUM=${OPTARG}
            ;;
         c) AWS_CONFIG_FILE=${OPTARG}
+           ;;
+        d) ARCH=${OPTARG}
            ;;
         e) AWS_PROFILE=${OPTARG}
            ;;
         p) PRODUCT=${OPTARG}
            ;;
-        r) ARCH=${OPTARG}
+        r) RELEASE=${OPTARG}
            ;;
         s) AWS_SHARED_CREDENTIALS_FILE=${OPTARG}
            ;;
@@ -124,7 +127,7 @@ do
     esac
 done
 
-if [[ -z ${PRODUCT} || -z ${VERSION} || -z ${BUILD_NUM} || -z ${AWS_PROFILE} ]]; then
+if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${AWS_PROFILE} ]]; then
     usage
 fi
 
