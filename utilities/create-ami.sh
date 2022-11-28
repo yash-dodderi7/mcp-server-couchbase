@@ -69,7 +69,7 @@ EOT
            ;;
         couchbase-cloud-backup*)
             echo "export PKR_VAR_enableServerless=false" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-backup.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         *)
