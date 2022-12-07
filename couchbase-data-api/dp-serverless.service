@@ -19,6 +19,9 @@ ExecStart=/home/ec2-user/dp-serverless
 PermissionsStartOnly=true
 ExecStartPre=/usr/bin/mkdir -p /var/log/dp-serverless
 ExecStartPre=/usr/bin/chmod 755 /var/log/dp-serverless
+# make sure the directory for fluent-bit Datadog config exists
+ExecStartPre=/usr/bin/mkdir -p /etc/systemd/system/fluent-bit.service.d
+ExecStartPre=/usr/bin/chmod 755 /etc/systemd/system/fluent-bit.service.d
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=dpagent
