@@ -3,6 +3,7 @@
 import boto3
 import botocore
 import os
+import re
 import json
 import argparse
 import sys
@@ -10,12 +11,13 @@ from datetime import datetime, timedelta
 import time
 from botocore.config import Config
 import logging
+from couchbase_cloud_internal_api import CouchbaseCloudInternalApi
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
                     stream=sys.stderr, level=logging.INFO)
 
 
-class CouchbaseCloud:
+class CouchbaseCloudAWS:
     def __init__(self, profile):
         config = json.loads(open('config.json').read())
         self.session = boto3.session.Session(profile_name=profile)
@@ -23,7 +25,8 @@ class CouchbaseCloud:
         self.roles = config['roles']
 
     # https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
-    # Role chaining limits has a max of one hour.  Duration larger than 3600 sec will fail.
+    # Role chaining limits has a max of one hour.  Duration larger than 3600
+    # sec will fail.
     def assume_role(self, env):
         client = self.session.client('sts')
         result = client.assume_role(
@@ -129,67 +132,44 @@ class CouchbaseCloud:
             Tags=[{'Key': tag_name, 'Value': tag_value}, ]
         )
 
-    def ami_cleanup(self, profile, region, product, version, age):
+    def get_secret(self, profile, secret_name):
+        session = boto3.Session(profile_name=profile)
+        client = session.client("secretsmanager")
+        response = client.get_secret_value(SecretId=secret_name)
+        return response
+
+    # Remove older AMIs by product.
+    # By default, AMIs older than 14 days are removed.
+    # Mininum of 8 AMIs are kept.
+    def ami_cleanup(self, profile, region, product_prefix,
+                    version, age, default_amis):
         session = boto3.Session(profile_name=profile)
         client = session.client('ec2', region_name=region)
 
         now = datetime.now()
         timelimit = now - timedelta(days=age)
 
-        # Couchbase server AMI names are slightly different than its rpm name
-        # Product rpm: couchbase-server-enterprise-debuginfo-7.5.0-3063-linux.x86_64.rpm
-        # AMIs:
-        #     couchbase-serverless-server-7.5.0-3063
-        #     couchbase-serverless-backup-7.5.0-3063
-        # couchbase-serverless-*-{version}* will match both AMIs above
+        ami_name_pattern = f'{product_prefix}*-{version}*'
+        keep_count = 8
 
-        if product == 'couchbase-server':
-            ami_name_pattern = f'couchbase-serverless-*-{version}*'
-            keep_count = 4
-        else:
-            ami_name_pattern = f'{product}-{version}*'
-            keep_count = 2
-
-        # Search AMIs
+        # Search AMIs.
         images = self.search_ami_by_pattern(client, ami_name_pattern)
         images.sort(key=lambda ami: datetime.strptime(
             ami['CreationDate'], '%Y-%m-%dT%H:%M:%S.%f%z'), reverse=True)
 
-        # Service tag is only created after QE validates an AMI.  Control plane uses the newest AMI with service tag.
-        # We keep at least two just in case.
-        # If service doesn't exist, QE either has not run the validation against it or the image failed the validation.
-        # Hence, it is safe to remove these based on date
-        validated_images = []
-        unvalidated_images = []
-        for image in images:
-            if 'service' in [tag['Key'] for tag in image['Tags']]:
-                validated_images.append(image)
-            else:
-                unvalidated_images.append(image)
+        # Take out default amis from the image list.
+        # We don't want to remove these.
+        images = [i for i in images if i['Name'] not in default_amis]
 
-        if len(validated_images) > keep_count:
-            del validated_images[:keep_count]
+        if len(images) > keep_count:
+            del images[:keep_count]
 
-        validated_images = [image for image in validated_images if datetime.strptime(
-            image['CreationDate'], '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None) <= timelimit]
-        unvalidated_images = [image for image in unvalidated_images if datetime.strptime(
+        images = [image for image in images if datetime.strptime(
             image['CreationDate'], '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None) <= timelimit]
 
-        # Images didn't pass the validation test.  Just remove these.
-        for image in unvalidated_images:
-            logging.info(
-                f"Removing {image['Name']} {image['ImageId']} {image['CreationDate']}.")
-            client.deregister_image(ImageId=image['ImageId'])
-            for device in image['BlockDeviceMappings']:
-                if 'Ebs' in device:
-                    snapshot_id = device['Ebs']['SnapshotId']
-                    logging.info(
-                        f"Removing {snapshot_id} of {image['ImageId']}.")
-                    client.delete_snapshot(SnapshotId=snapshot_id)
-
-        # Check images that passed validation.  Don't remove these if they are still in use.
+        # Skip AMIs that are still in use.
         bld_keep_list = []
-        for image in validated_images:
+        for image in images:
             bld_ver = [tag for tag in image['Tags']
                        if tag['Key'] == 'version'][0]['Value']
             if bld_ver not in bld_keep_list:
@@ -201,7 +181,7 @@ class CouchbaseCloud:
                         bld_keep_list.append(bld_ver)
                         break
 
-        for image in validated_images:
+        for image in images:
             bld_ver = [tag for tag in image['Tags']
                        if tag['Key'] == 'version'][0]['Value']
             if bld_ver not in bld_keep_list:
@@ -215,7 +195,8 @@ class CouchbaseCloud:
                             f"Removing {snapshot_id} of {image['ImageId']}.")
                         client.delete_snapshot(SnapshotId=snapshot_id)
 
-    def copy_ami(self, source_profile, source_region, dest_profile, dest_region, ami_name):
+    def copy_ami(self, source_profile, source_region,
+                 dest_profile, dest_region, ami_name):
         # retries are mainly useful for waiting for AMI to become available
         config = Config(
             retries={
@@ -314,11 +295,11 @@ class CouchbaseCloud:
 
 
 if __name__ == "__main__":
-    couchbasecloud = CouchbaseCloud('CBROBOT')
+    couchbasecloudaws = CouchbaseCloudAWS('CBROBOT')
     credentials = dict()
-    for env in couchbasecloud.roles.keys():
-        credentials[env] = couchbasecloud.assume_role(env)
-    couchbasecloud.write_configs(credentials)
+    for env in couchbasecloudaws.roles.keys():
+        credentials[env] = couchbasecloudaws.assume_role(env)
+    couchbasecloudaws.write_configs(credentials)
 
     parser = argparse.ArgumentParser('AWS Cloud Utilities', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
@@ -360,24 +341,63 @@ if __name__ == "__main__":
         '--profile', type=str, required=True, help='AWS account profile.')
     subparser_ami_cleanup.add_argument(
         '--region', type=str, default='us-east-1', nargs='?', help='AWS account region.')
-    subparser_ami_cleanup.add_argument('--product', type=str, required=True,
-                                       help='i.e. couchbase-serverless, direct-nebula, couchbase-data-api')
+    subparser_ami_cleanup.add_argument('--product_prefix', type=str, required=True,
+                                       help='i.e. couchbase-serverless, couchbase-cloud, direct-nebula, couchbase-data-api')
     subparser_ami_cleanup.add_argument(
         '--version', type=str, required=True, help='i.e. 7.5.0, 0.1')
     subparser_ami_cleanup.add_argument(
         '--age', type=int, default=14, nargs='?', help='Days to keep.')
+    subparser_ami_cleanup.add_argument(
+        '--dev_username', type=str, required=True, help='Control plane dev account, which is used to retrieve default images info.')
+    subparser_ami_cleanup.add_argument(
+        '--dev_password', type=str, required=True, help='Control plane dev account password, which is used to retrieve default images info.')
+    subparser_ami_cleanup.add_argument(
+        '--stage_token', type=str, required=True, help='Control Plane stage token, which is used to retrieve default images info.')
 
     args = parser.parse_args()
 
     if args.cmd == 'tag_ami':
-        couchbasecloud.tag_ami(args.profile, args.region,
-                               args.ami_name, args.tag_name, args.tag_value)
+        couchbasecloudaws.tag_ami(args.profile, args.region,
+                                  args.ami_name, args.tag_name, args.tag_value)
     if args.cmd == 'copy_ami':
-        couchbasecloud.copy_ami(args.source_profile, args.source_region,
-                                args.dest_profile, args.dest_region, args.ami_name)
+        couchbasecloudaws.copy_ami(args.source_profile, args.source_region,
+                                   args.dest_profile, args.dest_region, args.ami_name)
     if args.cmd == 'ami_cleanup':
-        couchbasecloud.ami_cleanup(
-            args.profile, args.region, args.product, args.version, args.age)
+        # Control plane's product keys are different from rpms.
+        if args.product_prefix == 'couchbase-serverless' or args.product_prefix == 'couchbase-cloud':
+            cp_product_key = 'couchbase'
+        if args.product_prefix == 'direct-nebula':
+            cp_product_key = 'nebula'
+        if args.product_prefix == 'couchbase-data-api':
+            cp_product_key = 'dataApi'
+
+        default_amis = []
+
+        # Dev and stage use different motheds to access internal apis.
+        dev = CouchbaseCloudInternalApi(
+            args.dev_username, args.dev_password, 'dev', '')
+        dev_images = dev.ami_info()
+        default_amis.append(dev_images[cp_product_key]['image'])
+        stage = CouchbaseCloudInternalApi('', '', 'stage', args.stage_token)
+        stage_images = stage.ami_info()
+        default_amis.append(dev_images[cp_product_key]['image'])
+        default_amis = list(set(default_amis))
+
+        # Default current doens't contain backup AMI for couchbase server.
+        # i.e. couchbase-server 7.5.0-3342 has two AMIs: couchbase-serverless-server-7.5.0-3342
+        # and couchbase-serverless-backup-7.5.0-3342.But, only couchbase-serverless-server-7.5.0-3342
+        # shows up on the internal api.
+        # An enhancement ticket has been filed.  For now, we will manually
+        # append the backup AMI.
+        if cp_product_key == 'couchbase':
+            version_bld_list = []
+            for ami in default_amis:
+                version_bld_list.append('-'.join(ami.rsplit('-', 2)[-2:]))
+            for vb in version_bld_list:
+                default_amis.append(f'{args.product_prefix}-backup-{vb}')
+
+        couchbasecloudaws.ami_cleanup(
+            args.profile, args.region, args.product_prefix, args.version, args.age, default_amis)
 
     if args.cmd == 'download_agents':
-        couchbasecloud.download_agents(args.arch)
+        couchbasecloudaws.download_agents(args.arch)
