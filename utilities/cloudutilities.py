@@ -396,6 +396,7 @@ if __name__ == "__main__":
             for vb in version_bld_list:
                 default_amis.append(f'{args.product_prefix}-backup-{vb}')
 
+        logging.info(f'Current default AMIs: {default_amis}.')
         couchbasecloudaws.ami_cleanup(
             args.profile, args.region, args.product_prefix, args.version, args.age, default_amis)
 

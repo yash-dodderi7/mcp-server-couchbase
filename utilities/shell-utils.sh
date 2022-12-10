@@ -69,9 +69,64 @@ function trigger_jenkins_job {
         count=$((count+1))
         sleep 10
     done
-    
+
     if ((count>10)); then
     	echo "Unable to kick off $url.  It is possible another run is in progress."
     	exit 99
     fi
+}
+
+# Check pid array for error
+# The function waits for all processes to complete.
+# If any process fails, it exits with error.
+function check_pids {
+    arr=("$@")
+    echo "checking pids: ${arr[@]}"
+    for pid in "${arr[@]}"; do
+        wait ${pid}
+        return_code="$?"
+        if [[ ${return_code} != "0" ]]; then
+            echo "One of the child processes failed.  Terminating..."
+            echo "PID = ${pid}; return_code = ${return_code}"
+            exit -1
+        fi
+    done
+}
+
+# Set AWS config in a custom location
+function init_aws_config {
+    while getopts i:k:p:w: opt; do
+        case ${opt} in
+            i) aws_access_key_id=${OPTARG}
+               ;;
+            k) aws_secret_access_key=${OPTARG}
+               ;;
+            p) aws_profile=${OPTARG}
+               ;;
+            w) aws_custom_config_dir=${OPTARG}
+               ;;
+            *) echo "Usage: $0 -p <profile name> -i <AWS Access Key ID> -k <AWS Secret Access Key> -w <AWS custom config dir>"
+               exit 1
+               ;;
+        esac
+    done
+    for param in aws_access_key_id aws_secret_access_key aws_profile aws_custom_config_dir; do
+        chk_set ${param}
+    done
+    rm -rf ${aws_custom_config_dir}
+    mkdir ${aws_custom_config_dir}
+    cat <<EOT >> ${aws_custom_config_dir}/credentials
+[${aws_profile}]
+aws_access_key_id     = ${aws_access_key_id}
+aws_secret_access_key = ${aws_secret_access_key}
+EOT
+
+cat <<EOT >> ${aws_custom_config_dir}/config
+[profile ${aws_profile}]
+region=us-east-1
+output=json
+EOT
+
+    export AWS_SHARED_CREDENTIALS_FILE=${aws_custom_config_dir}/credentials
+    export AWS_CONFIG_FILE=${aws_custom_config_dir}/config
 }
