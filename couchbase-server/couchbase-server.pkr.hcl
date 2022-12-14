@@ -148,6 +148,16 @@ build {
       "sudo chmod 755 /etc/systemd/journald.conf",
       // Set swappiness to 1 to avoid swapping excessively
       "sudo sh -c 'echo \"vm.swappiness = 1\" >> /etc/sysctl.conf'",
+      // Install dependent yum packages:
+      //   tzdata: timezone info used by some N1QL functions
+      //   dependencies for system commands used by cbcollect_info:
+      //     lsof: lsof
+      //     shw: lshw
+      //     sysstat: iostat, sar, mpstat
+      //     net-tools: ifconfig, arp, netstat
+      //     numactl: numactl
+      //     ntp: ntpdate, ntpq
+      "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata",
       "sudo yum install -y /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm",
       "rm /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm",
       // Setup the directory for the TLS certificate and key
