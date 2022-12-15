@@ -53,10 +53,10 @@ EOT
 
     #packer variables specific for couchbase-server
     case ${AMI_PRODUCT} in
-        couchbase-serverless-server*) 
+        couchbase-serverless-server*)
             echo "export PKR_VAR_enableServerless=true" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-serverless.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-agent.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-serverless-backup*)
             echo "export PKR_VAR_enableServerless=true" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
