@@ -84,13 +84,6 @@ build {
     source      = "couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm"
   }
 
-  # https://couchbasecloud.atlassian.net/browse/AV-47166
-  # Add debug rpm to serverless AMI temporarily.  This will be removed once the product is more stable.
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "couchbase-server-enterprise-debuginfo-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm"
-  }
-
   provisioner "file" {
     destination = "/tmp/"
     source      = "agents/${var.product_arch}/${var.dp_service}.gz"

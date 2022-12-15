@@ -19,12 +19,6 @@ function usage
 function download_files
 {
     curl --fail -LO ${PRODUCT_PKG_URL}
-    # https://couchbasecloud.atlassian.net/browse/AV-47166
-    # Add debug rpm to serverless AMI temporarily.  This will be removed once the product is more stable.
-    if [[ ${PRODUCT} == "couchbase-serverless-"* ]]; then
-        PRODUCT_DEBUG_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-debuginfo-${VERSION}-${BLD_NUM}-amzn2.${ARCH}.rpm"
-        curl --fail -LO ${PRODUCT_DEBUG_PKG_URL}
-    fi
     cp -rp ${WORKSPACE}/cloud-build-tools/utilities/agents .
 }
 
@@ -56,22 +50,18 @@ EOT
         couchbase-serverless-server*)
             echo "export PKR_VAR_enableServerless=true" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-agent.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-serverless-backup*)
             echo "export PKR_VAR_enableServerless=true" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-backup.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-server*)
             echo "export PKR_VAR_enableServerless=false" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-agent.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-backup*)
             echo "export PKR_VAR_enableServerless=false" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service_file=../utilities/agents/${ARCH}/dp-backup.gz" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         *)
            ;;
