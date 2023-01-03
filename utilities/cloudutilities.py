@@ -161,8 +161,11 @@ class CouchbaseCloudAWS:
         # We don't want to remove these.
         images = [i for i in images if i['Name'] not in default_amis]
 
+        # Keep a minimal set of AMIs
         if len(images) > keep_count:
             del images[:keep_count]
+        else:
+            return
 
         images = [image for image in images if datetime.strptime(
             image['CreationDate'], '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None) <= timelimit]
