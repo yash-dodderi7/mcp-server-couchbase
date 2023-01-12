@@ -86,6 +86,9 @@ ami_entry['changelog'] = ''
 if 'server' in product:
     product = 'couchbase-server'
 
+# default previous_bld_num as bld_num-1
+previous_bld_num=str(int(bld_num)-1)
+
 # Create confluence session
 confluence = create_session(confluence_url, args.userid, args.password)
 
@@ -106,7 +109,6 @@ for i in range (1, len(tables[product])):
             filter(None, re.split(r'-([0-9.]+)', previous_ami)))
         ami_entry['changelog'] = f'{changelog_url_base}?product={product}&amp;fromVersion={version}&amp;fromBuild={previous_bld_num}&amp;toVersion={version}&amp;toBuild={bld_num}'
         break
-
 tables[product].insert(1, [ami_entry['name'], f'<a href=\"{ami_entry["changelog"]}\">changes from {previous_bld_num}</a>',
                        ami_entry['test_result'], f'<a href=\"{ami_entry["test_link"]}\">qe jenkins link</a>', ami_entry['note']])
 
