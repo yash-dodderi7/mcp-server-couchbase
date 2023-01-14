@@ -18,37 +18,35 @@ logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
 
 
 class CouchbaseCloudAWS:
+
     def __init__(self, profile):
-        config = json.loads(open('config.json').read())
+        self.config = json.loads(open('config.json').read())
         self.session = boto3.session.Session(profile_name=profile)
-        self.s3 = config['s3']
-        self.roles = config['roles']
 
     # https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
     # Role chaining limits has a max of one hour.  Duration larger than 3600
     # sec will fail.
-    def assume_role(self, env):
+        credentials = dict()
         client = self.session.client('sts')
-        result = client.assume_role(
-            RoleArn=self.roles[env]['ROLE_ARN'],
-            RoleSessionName=self.roles[env]['ROLE_SESSION_NAME'],
-            DurationSeconds=3600,
-            ExternalId=self.roles[env]['EXTERNALID']
-        )
-        credentials = result['Credentials']
-        return credentials
+        for env in self.config.keys():
+            result = client.assume_role(
+                RoleArn=self.config[env]['aws']['ROLE_ARN'],
+                RoleSessionName=self.config[env]['aws']['ROLE_SESSION_NAME'],
+                DurationSeconds=3600,
+                ExternalId=self.config[env]['aws']['EXTERNALID']
+            )
+            credentials[env] = result['Credentials']
 
-    def write_configs(self, credentials):
-
+    # Write AWS profiles and credentials
         with open('.aws/config', 'r+') as file:
             for env in credentials:
                 for line in file:
                     # Skip writing if it already exists.
-                    if self.roles[env]['ROLE_SESSION_NAME'] in line:
+                    if self.config[env]['aws']['ROLE_SESSION_NAME'] in line:
                         break
                 else:  # not found at the eof
                     file.write(
-                        f"[profile {self.roles[env]['ROLE_SESSION_NAME']}]\n")
+                        f"[profile {self.config[env]['aws']['ROLE_SESSION_NAME']}]\n")
                     file.write('region=us-east-1\n')
                     file.write('output=json\n')
 
@@ -56,10 +54,10 @@ class CouchbaseCloudAWS:
             for env in credentials:
                 for line in file:
                     # Skip writing if it already exists.
-                    if self.roles[env]['ROLE_SESSION_NAME'] in line:
+                    if self.config[env]['aws']['ROLE_SESSION_NAME'] in line:
                         break
                 else:  # not found at the eof
-                    file.write(f"[{self.roles[env]['ROLE_SESSION_NAME']}]\n")
+                    file.write(f"[{self.config[env]['aws']['ROLE_SESSION_NAME']}]\n")
                     file.write('aws_access_key_id     = %s\n' %
                                (credentials[env]['AccessKeyId']))
                     file.write('aws_secret_access_key = %s\n' %
@@ -68,13 +66,16 @@ class CouchbaseCloudAWS:
                                (credentials[env]['SessionToken']))
 
     def download_agents(self, arch):
-        s3_session = boto3.Session(profile_name=self.s3['profile'])
+        # s3 bucket is on prod account
+        s3_info = self.config['production']['aws']['s3']
+        profile_name = self.config['production']['aws']['s3']['profile']
+        s3_session = boto3.Session(profile_name=profile_name)
         s3_resource = s3_session.resource('s3')
-        for file in self.s3['files'][arch]:
-            name = os.path.basename(self.s3['files'][arch][file])
-            path = self.s3['files'][arch][file]
+        for file in s3_info['files'][arch]:
+            name = os.path.basename(s3_info['files'][arch][file])
+            path = s3_info['files'][arch][file]
             try:
-                s3_resource.Bucket(self.s3['bucket']).download_file(path, name)
+                s3_resource.Bucket(s3_info['bucket']).download_file(path, name)
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == '404':
                     logging.error(f'{path} does not exist.')
@@ -136,7 +137,7 @@ class CouchbaseCloudAWS:
         session = boto3.Session(profile_name=profile)
         client = session.client("secretsmanager")
         response = client.get_secret_value(SecretId=secret_name)
-        return response
+        print(response['SecretString'])
 
     # Remove older AMIs by product.
     # By default, AMIs older than 14 days are removed.
@@ -299,18 +300,21 @@ class CouchbaseCloudAWS:
 
 if __name__ == "__main__":
     couchbasecloudaws = CouchbaseCloudAWS('CBROBOT')
-    credentials = dict()
-    for env in couchbasecloudaws.roles.keys():
-        credentials[env] = couchbasecloudaws.assume_role(env)
-    couchbasecloudaws.write_configs(credentials)
 
     parser = argparse.ArgumentParser('AWS Cloud Utilities', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
 
     subparser_download_agents = subparsers.add_parser(
-        'download_agents', help='Download DP Agents.')
+        'download_agents', help='Download DP Agents')
     subparser_download_agents.add_argument(
         '--arch', type=str, default="aarch64", help='DP Agent arch: aarch64 or x86_64')
+
+    subparser_get_secret = subparsers.add_parser(
+        'get_secret', help='Retreat secret value from AWS secret manager')
+    subparser_get_secret.add_argument(
+        '--secret_name', type=str, required=True, help='Secret name in AWS secret manager')
+    subparser_get_secret.add_argument(
+        '--profile', type=str, required=True, help='AWS profile for the account where AMI belongs to.')
 
     subparser_tag_ami = subparsers.add_parser(
         'tag_ami', help='Add tag to an AMI.')
@@ -366,13 +370,16 @@ if __name__ == "__main__":
         couchbasecloudaws.copy_ami(args.source_profile, args.source_region,
                                    args.dest_profile, args.dest_region, args.ami_name)
     if args.cmd == 'ami_cleanup':
-        # Control plane's product keys are different from rpms.
+        # cp_product_key is product key defined in Control Plane.
+        # Control Plane's product keys are different from rpms: couchbase, nebula, dataApi.
         if args.product_prefix == 'couchbase-serverless' or args.product_prefix == 'couchbase-cloud':
             cp_product_key = 'couchbase'
-        if args.product_prefix == 'direct-nebula':
+        elif args.product_prefix == 'direct-nebula':
             cp_product_key = 'nebula'
-        if args.product_prefix == 'couchbase-data-api':
+        elif args.product_prefix == 'couchbase-data-api':
             cp_product_key = 'dataApi'
+        else:
+            sys.exit(f'Product, {args.product_prefix}, is not supported')
 
         default_amis = []
 
@@ -405,3 +412,5 @@ if __name__ == "__main__":
 
     if args.cmd == 'download_agents':
         couchbasecloudaws.download_agents(args.arch)
+    if args.cmd == 'get_secret':
+        couchbasecloudaws.get_secret(args.profile, args.secret_name)

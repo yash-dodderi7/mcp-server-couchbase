@@ -1,0 +1,52 @@
+On Azure, images are stored under resource-group and made available under
+resource-group-->image-gallery-->image-definition.  We need to make sure
+these are available before running the packer file to create the image.
+Unless it is a new env, resource-group and image-gallery should have been
+created.  By default, they are named "image-factory" and "capella" respectly.
+New image-definition are created for each release, i.e.
+"couchbase-serverless-server-7.5.0" and "couchbase-serverless-backup-7.5.0".
+
+To verify these, run:
+  * az login --service-principal -u <client_id> -p <client_pw> --tenant <tenant_id>
+  * az sig list --resource-group image-factory
+  * az sig image-definition list --gallery-name capella --resource-group image-factory
+
+To create new image-definitions:
+  *   az sig image-definition create --gallery-image-definition couchbase-serverless-server-7.5.0 \
+    --gallery-name capella \
+    --offer server \
+    --os-type Linux \
+    --publisher couchbase-capella \
+    --resource-group image-factory \
+    --hyper-v-generation v2 \
+    --sku couchbase-serverless-server-7.5.0
+
+  *   az sig image-definition create --gallery-image-definition couchbase-serverless-backup-7.5.0 \
+    --gallery-name capella \
+    --offer server \
+    --os-type Linux \
+    --publisher couchbase-capella \
+    --resource-group image-factory \
+    --hyper-v-generation v2 \
+    --sku couchbase-serverless-backup-7.5.0
+
+To publish a new image:
+  * create .env based on .env.example
+  * source .env
+  * packer init couchbase-server.pkr.hcl
+  * packer build couchbase-server.pkr.hcl
+
+
+Other useful az commands:
+  * To delete an image:
+    az image delete --name couchbase-cloud-server-7.1.3-3480 --resource-group image-factory
+  * To delete an image version:
+    az sig image-version delete --gallery-image-version 1.0.3480  --resource-group image-factory --gallery-name capella --gallery-image-definition couchbase-cloud-server-7.1.3
+  * To delete an image definition:
+    az sig image-definition delete --resource-group image-factory --gallery-name capella --gallery-image-definition couchbase-cloud-server-7.1.3
+  * To create a VM:
+    get image id by running "az image show --name couchbase-cloud-server-7.1.3-3480 --resource-group image-factory"
+    az vm create --resource-group image-factory --name mings-vm --image <image id from command above> --admin-username azureuser --generate-ssh-keys
+    Note: public ssh key is generated based on ~/.ssh/id_rsa and is stored on Azure.  ~/.ssh/id_rsa is created if it doesn't exist.
+  * To delete a VM:
+    az vm delete --resource-group image-factory --name mings-vm
