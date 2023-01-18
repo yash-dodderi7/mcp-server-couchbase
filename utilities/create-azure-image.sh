@@ -25,7 +25,7 @@ function create_image
     local IMAGE_PRODUCT="${1}"
     local PACKER_FILE="${2}"
     if [[ -z ${IMAGE_NAME_OVERWRITE} ]]; then
-        IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-${BLD_NUM}
+        IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-${BLD_NUM}-${DP_REVISION}
     else
         IMAGE_NAME=${IMAGE_NAME_OVERWRITE}
     fi
@@ -45,7 +45,7 @@ export PKR_VAR_resource_group=${RESOURCE_GROUP}
 export PKR_VAR_image_gallery=${GALLERY_NAME}
 export PKR_VAR_image_definition=${IMAGE_DEFINITION}
 export PKR_VAR_image_name=${IMAGE_NAME}
-export PKR_VAR_image_version=${BLD_NUM}.0.0
+export PKR_VAR_image_version=${BLD_NUM}.0.${DP_REVISION}
 export PKR_VAR_region=${REGION}
 export PKR_VAR_replication_regions='${REPLICATION_REGIONS}'
 EOT
@@ -92,7 +92,16 @@ EOT
 
 #Main
 
-while getopts p:r:v:b:c:s:i:t:o: opt
+#default config
+ARCH="amd64"
+DP_REVISION=1
+RESOURCE_GROUP="image-factory"
+GALLERY_NAME="capella"
+PLATFORM="ubuntu20.04"
+REGION="eastus"
+REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastus2", "eastus", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "uksouth", "westeurope", "westus2", "westus3"]'
+
+while getopts p:r:v:b:c:d:s:i:t:o: opt
 do
     case ${opt} in
         o) IMAGE_NAME_OVERWRITE=${OPTARG}
@@ -104,6 +113,8 @@ do
         v) VERSION=${OPTARG}
            ;;
         b) BLD_NUM=${OPTARG}
+           ;;
+        d) DP_REVISION=${OPTARG}
            ;;
         c) CLIENT_ID=${OPTARG}
            ;;
@@ -130,14 +141,7 @@ if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${C
     usage
 fi
 
-#default config
-ARCH="amd64"
-RESOURCE_GROUP="image-factory"
-GALLERY_NAME="capella"
 IMAGE_DEFINITION=${PRODUCT}-${VERSION}
-PLATFORM="ubuntu20.04"
-REGION="eastus"
-REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastus2", "eastus", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "uksouth", "westeurope", "westus2", "westus3"]'
 
 # Current Supported Products:
 # 	couchbase-cloud-server couchbase-cloud-backup couchbase-serverless-server couchbase-serverless-backup
