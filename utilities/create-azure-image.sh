@@ -24,10 +24,13 @@ function create_image
 {
     local IMAGE_PRODUCT="${1}"
     local PACKER_FILE="${2}"
-    if [[ -z ${IMAGE_NAME_OVERWRITE} ]]; then
-        IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-${BLD_NUM}-${DP_REVISION}
-    else
+    IMAGE_VERSION=${BLD_NUM}.0.${DP_REVISION}
+    IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-${BLD_NUM}-${DP_REVISION}
+    if [[ ! -z ${IMAGE_NAME_OVERWRITE} ]]; then
         IMAGE_NAME=${IMAGE_NAME_OVERWRITE}
+    fi
+    if [[ ! -z ${IMAGE_VERSION_OVERWRITE} ]]; then
+        IMAGE_VERSION=${IMAGE_VERSION_OVERWRITE}
     fi
 
 #set environment variables used by packer file
@@ -45,7 +48,7 @@ export PKR_VAR_resource_group=${RESOURCE_GROUP}
 export PKR_VAR_image_gallery=${GALLERY_NAME}
 export PKR_VAR_image_definition=${IMAGE_DEFINITION}
 export PKR_VAR_image_name=${IMAGE_NAME}
-export PKR_VAR_image_version=${BLD_NUM}.0.${DP_REVISION}
+export PKR_VAR_image_version=${IMAGE_VERSION}
 export PKR_VAR_region=${REGION}
 export PKR_VAR_replication_regions='${REPLICATION_REGIONS}'
 EOT
@@ -101,10 +104,12 @@ PLATFORM="ubuntu20.04"
 REGION="eastus"
 REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastus2", "eastus", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "uksouth", "westeurope", "westus2", "westus3"]'
 
-while getopts p:r:v:b:c:d:s:i:t:o: opt
+while getopts p:r:v:b:c:d:s:i:t:o:w: opt
 do
     case ${opt} in
         o) IMAGE_NAME_OVERWRITE=${OPTARG}
+           ;;
+        w)IMAGE_VERSION_OVERWRITE=${OPTARG}
            ;;
         p) PRODUCT=${OPTARG}
            ;;
@@ -135,7 +140,7 @@ if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${C
     echo "v is ${VERSION}"
     echo "b is ${BLD_NUM}"
     echo "c is ${CLIENT_ID}"
-    echo "c_s is ${CLIENT_SECRET}"
+    echo "s is ${CLIENT_SECRET}"
     echo "s is ${SUBSCRIPTION_ID}"
     echo "t is ${TENANT_ID}"
     usage
