@@ -25,7 +25,7 @@ function create_image
     local IMAGE_PRODUCT="${1}"
     local PACKER_FILE="${2}"
     IMAGE_VERSION=${BLD_NUM}.0.${DP_REVISION}
-    IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-${BLD_NUM}-${DP_REVISION}
+    IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-v${IMAGE_VERSION}
     if [[ ! -z ${IMAGE_NAME_OVERWRITE} ]]; then
         IMAGE_NAME=${IMAGE_NAME_OVERWRITE}
     fi
