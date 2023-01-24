@@ -80,9 +80,11 @@ locals {
 # Azure machine image Builder
 source "azure-arm" "cc" {
   azure_tags = {
-    owner                = "couchbase-build-team"
+    owner                = "couchbase-capella"
+    creator              = "build-team"
     arch                 = "${var.product_arch}"
-    version              = "${var.product_version}-${var.product_bld_num}"
+    product_version      = "${var.product_version}"
+    image_version        = "${var.image_version}"
   }
 
   shared_image_gallery_destination {
