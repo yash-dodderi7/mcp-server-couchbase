@@ -23,7 +23,7 @@ To create new image-definitions:
 
   *   az sig image-definition create --gallery-image-definition couchbase-serverless-backup-7.5.0 \
     --gallery-name capella \
-    --offer server \
+    --offer backup \
     --os-type Linux \
     --publisher couchbase-capella \
     --resource-group image-factory \

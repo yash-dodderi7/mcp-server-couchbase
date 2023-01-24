@@ -1,0 +1,28 @@
+On Azure, images are stored under resource-group and made available under
+resource-group-->image-gallery-->image-definition.  We need to make sure
+these are available before running the packer file to create the image.
+Unless it is a new env, resource-group and image-gallery should have been
+created.  By default, they are named "image-factory" and "capella" respectly.
+New image-definition are created for each release, i.e.
+"couchbase-cloud-sync-gateway-3.0.3"
+
+To verify these, run:
+  * az login --service-principal -u <client_id> -p <client_pw> --tenant <tenant_id>
+  * az sig list --resource-group image-factory
+  * az sig image-definition list --gallery-name capella --resource-group image-factory
+
+To create new image-definitions:
+  *   az sig image-definition create --gallery-image-definition couchbase-cloud-sync-gateway-3.0.3 \
+    --gallery-name capella \
+    --offer sync-gateway \
+    --os-type Linux \
+    --publisher couchbase-capella \
+    --resource-group image-factory \
+    --hyper-v-generation v2 \
+    --sku couchbase-cloud-sync-gateway-3.0.3
+
+To publish a new image:
+  * create .env based on .env.example
+  * source .env
+  * packer init sync-gateway.pkr.hcl
+  * packer build sync-gateway.pkr.hcl

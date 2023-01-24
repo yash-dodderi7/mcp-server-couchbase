@@ -154,7 +154,7 @@ IMAGE_DEFINITION=${PRODUCT}-${VERSION}
 #       couchbase-data-api
 
 case ${PRODUCT} in
-    couchbase-cloud*)
+    couchbase-cloud-server|couchbase-cloud-backup)
         packer_file="couchbase-server.pkr.hcl"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise_${VERSION}-${BLD_NUM}-${PLATFORM}_${ARCH}.deb"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/azure
@@ -173,6 +173,14 @@ case ${PRODUCT} in
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/azure
         download_files
         create_image ${PRODUCT} ${PRODUCT}.pkr.hcl
+        ;;
+    couchbase-cloud-sync-gateway)
+        ARCH="x86_64"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.deb"
+        echo "${PRODUCT_PKG_URL}"
+        cd ${WORKSPACE}/cloud-build-tools/couchbase-sync-gateway/azure
+        download_files
+        create_image ${PRODUCT} couchbase-sync-gateway.pkr.hcl
         ;;
     *)
         echo "${PRODUCT} is not supported"
