@@ -12,6 +12,7 @@ import time
 from botocore.config import Config
 import logging
 from couchbase_cloud_internal_api import CouchbaseCloudInternalApi
+from aws_assume_role import AWSAssumeRole
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
                     stream=sys.stderr, level=logging.INFO)
@@ -20,55 +21,15 @@ logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
 class CouchbaseCloudAWS:
 
     def __init__(self, profile):
-        self.config = json.loads(open('config.json').read())
-        self.session = boto3.session.Session(profile_name=profile)
-
-    # https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
-    # Role chaining limits has a max of one hour.  Duration larger than 3600
-    # sec will fail.
-        credentials = dict()
-        client = self.session.client('sts')
-        for env in self.config.keys():
-            result = client.assume_role(
-                RoleArn=self.config[env]['aws']['ROLE_ARN'],
-                RoleSessionName=self.config[env]['aws']['ROLE_SESSION_NAME'],
-                DurationSeconds=3600,
-                ExternalId=self.config[env]['aws']['EXTERNALID']
-            )
-            credentials[env] = result['Credentials']
-
-    # Write AWS profiles and credentials
-        with open('.aws/config', 'r+') as file:
-            for env in credentials:
-                for line in file:
-                    # Skip writing if it already exists.
-                    if self.config[env]['aws']['ROLE_SESSION_NAME'] in line:
-                        break
-                else:  # not found at the eof
-                    file.write(
-                        f"[profile {self.config[env]['aws']['ROLE_SESSION_NAME']}]\n")
-                    file.write('region=us-east-1\n')
-                    file.write('output=json\n')
-
-        with open('.aws/credentials', 'r+') as file:
-            for env in credentials:
-                for line in file:
-                    # Skip writing if it already exists.
-                    if self.config[env]['aws']['ROLE_SESSION_NAME'] in line:
-                        break
-                else:  # not found at the eof
-                    file.write(f"[{self.config[env]['aws']['ROLE_SESSION_NAME']}]\n")
-                    file.write('aws_access_key_id     = %s\n' %
-                               (credentials[env]['AccessKeyId']))
-                    file.write('aws_secret_access_key = %s\n' %
-                               (credentials[env]['SecretAccessKey']))
-                    file.write('aws_session_token     = %s\n' %
-                               (credentials[env]['SessionToken']))
+        self.environments = json.loads(open('environments.json').read())
+        for env in self.environments:
+            role = AWSAssumeRole(profile, env)
+            role.write_config()
 
     def download_agents(self, arch):
         # s3 bucket is on prod account
-        s3_info = self.config['production']['aws']['s3']
-        profile_name = self.config['production']['aws']['s3']['profile']
+        s3_info = self.environments['production']['aws']['s3']
+        profile_name = self.environments['production']['aws']['s3']['profile']
         s3_session = boto3.Session(profile_name=profile_name)
         s3_resource = s3_session.resource('s3')
         for file in s3_info['files'][arch]:
@@ -299,7 +260,7 @@ class CouchbaseCloudAWS:
 
 
 if __name__ == "__main__":
-    couchbasecloudaws = CouchbaseCloudAWS('CBROBOT')
+    couchbasecloudaws = CouchbaseCloudAWS('cbc-main')
 
     parser = argparse.ArgumentParser('AWS Cloud Utilities', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
@@ -307,14 +268,23 @@ if __name__ == "__main__":
     subparser_download_agents = subparsers.add_parser(
         'download_agents', help='Download DP Agents')
     subparser_download_agents.add_argument(
-        '--arch', type=str, default="aarch64", help='DP Agent arch: aarch64 or x86_64')
+        '--arch',
+        type=str,
+        default="aarch64",
+        help='DP Agent arch: aarch64 or x86_64')
 
     subparser_get_secret = subparsers.add_parser(
         'get_secret', help='Retreat secret value from AWS secret manager')
     subparser_get_secret.add_argument(
-        '--secret_name', type=str, required=True, help='Secret name in AWS secret manager')
+        '--secret_name',
+        type=str,
+        required=True,
+        help='Secret name in AWS secret manager')
     subparser_get_secret.add_argument(
-        '--profile', type=str, required=True, help='AWS profile for the account where AMI belongs to.')
+        '--profile',
+        type=str,
+        required=True,
+        help='AWS profile for the account where AMI belongs to.')
 
     subparser_tag_ami = subparsers.add_parser(
         'tag_ami', help='Add tag to an AMI.')
@@ -325,41 +295,78 @@ if __name__ == "__main__":
     subparser_tag_ami.add_argument(
         '--tag_value', type=str, required=True, help='Tag value to be added.')
     subparser_tag_ami.add_argument(
-        '--profile', type=str, required=True, help='AWS profile for the account where AMI belongs to.')
+        '--profile',
+        type=str,
+        required=True,
+        help='AWS profile for the account where AMI belongs to.')
     subparser_tag_ami.add_argument(
-        '--region', type=str, default='us-east-1', nargs='?', help='AWS region where AMI is located.')
+        '--region',
+        type=str,
+        default='us-east-1',
+        nargs='?',
+        help='AWS region where AMI is located.')
 
     subparser_copy_ami = subparsers.add_parser(
         'copy_ami', help='Promote(Copy) an AMI to another aws account.')
     subparser_copy_ami.add_argument(
         '--ami_name', type=str, required=True, help='AMI name.')
     subparser_copy_ami.add_argument(
-        '--source_profile', type=str, required=True, help='AWS account profile where AMI is copied from.')
-    subparser_copy_ami.add_argument('--source_region', type=str, default='us-east-1',
-                                    nargs='?', help='AWS account region where AMI is copied from.')
+        '--source_profile',
+        type=str,
+        required=True,
+        help='AWS account profile where AMI is copied from.')
     subparser_copy_ami.add_argument(
-        '--dest_profile', type=str, required=True, help='AWS account profile where AMI is copied to.')
-    subparser_copy_ami.add_argument('--dest_region', type=str, default='us-east-1',
-                                    nargs='?', help='AWS account region where AMI is copied to.')
+        '--source_region',
+        type=str,
+        default='us-east-1',
+        nargs='?',
+        help='AWS account region where AMI is copied from.')
+    subparser_copy_ami.add_argument(
+        '--dest_profile',
+        type=str,
+        required=True,
+        help='AWS account profile where AMI is copied to.')
+    subparser_copy_ami.add_argument(
+        '--dest_region',
+        type=str,
+        default='us-east-1',
+        nargs='?',
+        help='AWS account region where AMI is copied to.')
 
     subparser_ami_cleanup = subparsers.add_parser(
         'ami_cleanup', help='Delete older AMIs by age, keep minimum of last two.')
     subparser_ami_cleanup.add_argument(
         '--profile', type=str, required=True, help='AWS account profile.')
     subparser_ami_cleanup.add_argument(
-        '--region', type=str, default='us-east-1', nargs='?', help='AWS account region.')
-    subparser_ami_cleanup.add_argument('--product_prefix', type=str, required=True,
-                                       help='i.e. couchbase-serverless, couchbase-cloud, direct-nebula, couchbase-data-api')
+        '--region',
+        type=str,
+        default='us-east-1',
+        nargs='?',
+        help='AWS account region.')
+    subparser_ami_cleanup.add_argument(
+        '--product_prefix',
+        type=str,
+        required=True,
+        help='i.e. couchbase-serverless, couchbase-cloud, direct-nebula, couchbase-data-api')
     subparser_ami_cleanup.add_argument(
         '--version', type=str, required=True, help='i.e. 7.5.0, 0.1')
     subparser_ami_cleanup.add_argument(
         '--age', type=int, default=14, nargs='?', help='Days to keep.')
     subparser_ami_cleanup.add_argument(
-        '--dev_username', type=str, required=True, help='Control plane dev account, which is used to retrieve default images info.')
+        '--dev_username',
+        type=str,
+        required=True,
+        help='Control plane dev account, which is used to retrieve default images info.')
     subparser_ami_cleanup.add_argument(
-        '--dev_password', type=str, required=True, help='Control plane dev account password, which is used to retrieve default images info.')
+        '--dev_password',
+        type=str,
+        required=True,
+        help='Control plane dev account password, which is used to retrieve default images info.')
     subparser_ami_cleanup.add_argument(
-        '--stage_token', type=str, required=True, help='Control Plane stage token, which is used to retrieve default images info.')
+        '--stage_token',
+        type=str,
+        required=True,
+        help='Control Plane stage token, which is used to retrieve default images info.')
 
     args = parser.parse_args()
 
@@ -367,11 +374,16 @@ if __name__ == "__main__":
         couchbasecloudaws.tag_ami(args.profile, args.region,
                                   args.ami_name, args.tag_name, args.tag_value)
     if args.cmd == 'copy_ami':
-        couchbasecloudaws.copy_ami(args.source_profile, args.source_region,
-                                   args.dest_profile, args.dest_region, args.ami_name)
+        couchbasecloudaws.copy_ami(
+            args.source_profile,
+            args.source_region,
+            args.dest_profile,
+            args.dest_region,
+            args.ami_name)
     if args.cmd == 'ami_cleanup':
         # cp_product_key is product key defined in Control Plane.
-        # Control Plane's product keys are different from rpms: couchbase, nebula, dataApi.
+        # Control Plane's product keys are different from rpms: couchbase,
+        # nebula, dataApi.
         if args.product_prefix == 'couchbase-serverless' or args.product_prefix == 'couchbase-cloud':
             cp_product_key = 'couchbase'
         elif args.product_prefix == 'direct-nebula':
@@ -408,7 +420,12 @@ if __name__ == "__main__":
 
         logging.info(f'Current default AMIs: {default_amis}.')
         couchbasecloudaws.ami_cleanup(
-            args.profile, args.region, args.product_prefix, args.version, args.age, default_amis)
+            args.profile,
+            args.region,
+            args.product_prefix,
+            args.version,
+            args.age,
+            default_amis)
 
     if args.cmd == 'download_agents':
         couchbasecloudaws.download_agents(args.arch)

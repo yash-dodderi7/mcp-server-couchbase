@@ -1,0 +1,20 @@
+{
+    "sandbox": {
+        "aws": {
+            "ACCOUNT": <aws account number>,
+            "ROLE_SESSION_NAME": "dbaas-test-0005-temp"
+        }
+    },
+    "stage": {
+        "aws": {
+            "ACCOUNT": <aws account number>,
+            "ROLE_SESSION_NAME": "dbaas-stage-0001-temp"
+        }
+    },
+    "production": {
+        "aws": {
+            "ACCOUNT": <aws account number>,
+            "ROLE_SESSION_NAME": "dbaas-prod-0001-temp"
+        }
+    }
+}
