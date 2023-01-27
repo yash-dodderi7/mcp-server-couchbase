@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# This script is used by cb-robot in data center to manage images on AWS.
+# It is unlikely an individual can run this script since she/he may not have
+# proper permissions.
+
 import boto3
 import botocore
 import os

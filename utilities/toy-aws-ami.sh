@@ -113,7 +113,7 @@ case ${PRODUCT} in
     couchbase-cloud*|couchbase-serverless*)
         packer_file="couchbase-server.pkr.hcl"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/toybuilds/${TOY_BLD_NUM}/couchbase-server-enterprise-${VERSION}-${TOY_BLD_NUM}-amzn2.${ARCH}.rpm"
-        cd ${WORKSPACE}/cloud-build-tools/couchbase-server
+        cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         curl --fail -LO ${PRODUCT_PKG_URL} || exit -1
         cp -rp ${WORKSPACE}/cloud-build-tools/utilities/agents .
         create_ami ${PRODUCT} ${packer_file}
