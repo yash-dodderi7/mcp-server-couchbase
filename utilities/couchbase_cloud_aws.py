@@ -82,7 +82,7 @@ class CouchbaseCloudAWS:
             else:
                 sys.exit('AMI promotion(copy) might be stuck.')
 
-    def tag_ami(self, profile, region, ami_name, tag_name, tag_value):
+    def tag_ami(self, profile, region, ami_name, tag_name, tag_value=''):
         session = boto3.Session(profile_name=profile)
         client = session.client('ec2', region_name=region)
 
@@ -297,7 +297,7 @@ if __name__ == "__main__":
     subparser_tag_ami.add_argument(
         '--tag_name', type=str, required=True, help='Tag name to be added.')
     subparser_tag_ami.add_argument(
-        '--tag_value', type=str, required=True, help='Tag value to be added.')
+        '--tag_value', type=str, help='Tag value to be added.')
     subparser_tag_ami.add_argument(
         '--profile',
         type=str,
