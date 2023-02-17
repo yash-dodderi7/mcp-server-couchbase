@@ -158,6 +158,12 @@ case ${PRODUCT} in
         download_files
         create_ami ${PRODUCT} ${PRODUCT}.pkr.hcl
         ;;
+    couchbase-sync-gateway)
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/${PRODUCT}-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.rpm"
+        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
+        download_files
+        create_ami ${PRODUCT} ${PRODUCT}.pkr.hcl
+        ;;
     *)
         echo "${PRODUCT} is not supported"
         exit -1

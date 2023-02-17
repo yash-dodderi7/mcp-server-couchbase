@@ -1,12 +1,3 @@
-packer {
-  required_plugins {
-    windows-update = {
-      version = "0.14.1"
-      source  = "github.com/rgl/windows-update"
-    }
-  }
-}
-
 variable "product_name" {
   type = string
 }
@@ -16,91 +7,63 @@ variable "product_version" {
 variable "product_bld_num" {
   type = string
 }
-variable "subscription_id" {
-  type = string
-}
-variable "client_id" {
-  type = string
-}
-variable "client_secret" {
-  type = string
-}
-variable "resource_group" {
-  type = string
-}
-variable "image_gallery" {
-  type = string
-}
-variable "image_definition" {
-  type = string
-}
-variable "image_name" {
-  type = string
-}
-variable "image_version" {
+variable "ami_name" {
   type = string
 }
 variable "region" {
   type = string
 }
-variable "replication_regions" {
-  type = list(string)
+variable "product_arch" {
+  type = string
 }
 
 locals {
-  platform = "ubuntu20.04"
-  image_sku = "20_04-lts-gen2"
-  image_offer = "0001-com-ubuntu-server-focal"
-
+  instance_type = "t2.micro"
   dp_service = "sgw-agent"
   product_arch = "x86_64"
   exporter_arch = "amd64"
   node_exporter_version = "1.1.2"
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
+
 }
 
-# Azure machine image Builder
-source "azure-arm" "cc" {
-  azure_tags = {
+source "amazon-ebs" "cc" {
+  ami_name      = "${var.ami_name}"
+  instance_type = "${local.instance_type}"
+  region        = "${var.region}"
+  source_ami_filter {
+    filters = {
+      name                = "amzn2-ami-hvm-2.0.*-${local.product_arch}-gp2"
+      root-device-type    = "ebs"
+      virtualization-type = "hvm"
+    }
+    most_recent = true
+    owners      = ["amazon"]
+  }
+  tags = {
     owner                = "couchbase-capella"
     creator              = "build-team"
     arch                 = "${local.product_arch}"
     product_version      = "${var.product_version}"
-    image_version        = "${var.image_version}"
+    version              = "${var.product_version}-${var.product_bld_num}"
   }
-
-  shared_image_gallery_destination {
-    subscription         = "${var.subscription_id}"
-    resource_group       = "${var.resource_group}"
-    gallery_name         = "${var.image_gallery}"
-    image_name           = "${var.image_definition}"
-    storage_account_type = "Standard_LRS"
-    image_version        = "${var.image_version}"
-    replication_regions  = "${var.replication_regions}"
+  snapshot_tags = {
+    owner                = "couchbase-capella"
+    creator              = "build-team"
+    arch                 = "${local.product_arch}"
+    product_version      = "${var.product_version}"
+    version              = "${var.product_version}-${var.product_bld_num}"
   }
-
-  client_id                          = "${var.client_id}"
-  client_secret                      = "${var.client_secret}"
-  image_offer                        = "${local.image_offer}"
-  image_publisher                    = "canonical"
-  image_sku                          = "${local.image_sku}"
-  managed_image_name                 = "${var.image_name}"
-  managed_image_resource_group_name  = "${var.resource_group}"
-  managed_image_storage_account_type = "Standard_LRS"
-  os_type                            = "Linux"
-  location                           = "${var.region}"
-  subscription_id                    = "${var.subscription_id}"
-  vm_size                            = "Standard_D2s_v3"
-  ssh_username                       = "ec2-user"
+  ssh_username = "ec2-user"
 }
 
 # a build block invokes sources and runs provisioning steps on them.
 build {
-  sources = ["source.azure-arm.cc"]
+  sources = ["source.amazon-ebs.cc"]
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.deb"
+    source      = "couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.rpm"
   }
 
   provisioner "file" {
@@ -138,7 +101,6 @@ build {
     inline = [
       "sleep 10",
       // create new group and allow users to sudo without a password
-      "echo \"ec2-user ALL=(ALL) NOPASSWD:ALL\" | sudo tee /etc/sudoers.d/dpapps",
       "sudo mv /tmp/journald.conf /etc/systemd/journald.conf",
       "sudo chown root:root /etc/systemd/journald.conf",
       "sudo chmod 755 /etc/systemd/journald.conf",
@@ -146,10 +108,9 @@ build {
       "sudo sh -c 'echo \"vm.swappiness = 1\" >> /etc/sysctl.conf'",
       "sudo sysctl vm.swappiness=0",
       // Install dependent packages:
-      "sudo apt update",
-      "sudo apt install -y bzip2 wget rsync",
-      "sudo apt install -y /tmp/couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.deb",
-      "sudo rm /tmp/couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.deb",
+      "sudo yum install -y bzip2 wget rsync",
+      "sudo yum install -y /tmp/couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.rpm",
+      "sudo rm /tmp/couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.rpm",
       // Remove the default startup config.
       "sudo rm -rf /home/sync_gateway/sync_gateway.json",
       // Replace the config env in the systemd file with the path of the
@@ -171,9 +132,9 @@ build {
       "sudo systemctl enable ${local.dp_service}.service",
       // Install firewall service
       "sudo mv /tmp/sgw-firewall.service /lib/systemd/system/sgw-firewall.service",
-      "sudo mv /tmp/iptables-firewall.sh /usr/local/bin",
-      "sudo chmod +x /usr/local/bin/iptables-firewall.sh",
-      "sudo chown root:root /usr/local/bin/iptables-firewall.sh",
+      "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",
+      "sudo chmod +x /home/ec2-user/iptables-firewall.sh",
+      "sudo chown root:root /home/ec2-user/iptables-firewall.sh",
       "sudo systemctl start sgw-firewall.service",
       "sudo systemctl enable sgw-firewall.service",
       // Add sync_gateway user to ec2-user group, so it can read files created by ec2-user
