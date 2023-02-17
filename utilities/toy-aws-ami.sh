@@ -2,13 +2,14 @@
 
 function usage
 {
-    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -t <TOY Build Number>"
+    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -t <TOY Build Number> -e"
     echo "  -p Product:  i.e. couchbase-serverless-server, couchbase-cloud-server"
     echo "  -r RELEASE: elixir"
     echo "  -v Version: i.e. 7.5.0, 3.1.0"
     echo "  -t Toy Build Number: i.e. 123"
     echo "  optional:"
     echo "  -a ARCH: x86_64 or aarch64"
+    echo "  -e AWS_PROFILE: dbaas-test-0005-temp or dbaas-stage-0001-temp"
     echo "  -g REGION: i.e. us-east-1"
     exit -1
 }
@@ -76,7 +77,7 @@ AWS_CONFIG_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/config
 AWS_PROFILE=dbaas-test-0005-temp
 REGION="us-east-1"
 
-while getopts p:r:v:t:a:g: opt
+while getopts p:r:v:t:a:g:e: opt
 do
     case ${opt} in
         p) PRODUCT=${OPTARG}
@@ -90,6 +91,8 @@ do
         a) ARCH=${OPTARG}
            ;;
         g) REGION=${OPTARG}
+           ;;
+        e) AWS_PROFILE=${OPTARG}
            ;;
         *) usage
            ;;
