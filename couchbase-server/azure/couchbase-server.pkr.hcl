@@ -55,6 +55,9 @@ variable "region" {
 variable "replication_regions" {
   type = list(string)
 }
+variable "agent_sha" {
+  type = string
+}
 
 locals {
   dp_backup_service = "dp-backup"
@@ -85,6 +88,7 @@ source "azure-arm" "cc" {
     arch                 = "${var.product_arch}"
     product_version      = "${var.product_version}"
     image_version        = "${var.image_version}"
+    agent                = "${var.agent_sha}"
   }
 
   shared_image_gallery_destination {

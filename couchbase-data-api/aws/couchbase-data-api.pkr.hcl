@@ -32,6 +32,10 @@ variable "product_arch" {
   type = string
 }
 
+variable "agent_sha" {
+  type = string
+}
+
 locals {
   process-exporter_version = "0.7.5"
   process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_arm64"
@@ -64,14 +68,18 @@ source "amazon-ebs" "cc" {
     owners      = ["amazon"]
   }
   tags = {
+    owner       = "couchbase-capella"
     creator     = "build-team"
     arch        = "${local.ami_arch}"
     version     = "${var.product_version}-${var.product_bld_num}"
+    agent       = "${var.agent_sha}"
   }
   snapshot_tags = {
+    owner       = "couchbase-capella"
     creator     = "build-team"
     arch        = "${local.ami_arch}"
     version     = "${var.product_version}-${var.product_bld_num}"
+    agent       = "${var.agent_sha}"
   }
   ssh_username = "ec2-user"
 }

@@ -13,6 +13,7 @@ function usage
     echo "  -d ARCH: aarch64 or x86_64"
     echo "  -c AWS Config File: ~/.aws/config"
     echo "  -s AWS Shared Credentials File: ~/.aws/credentials"
+    echo "  -g SHA that agent is built from"
     exit 1
 }
 
@@ -43,6 +44,7 @@ export PKR_VAR_product_bld_num=${BLD_NUM}
 export PKR_VAR_ami_name=${AMI_NAME}
 export PKR_VAR_product_platform=linux
 export PKR_VAR_product_arch=${ARCH}
+export PKR_VAR_agent_sha=${AGENT_SHA}
 EOT
 
     #packer variables specific for couchbase-server
@@ -90,8 +92,9 @@ EOT
 ARCH="aarch64"
 AWS_SHARED_CREDENTIALS_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/credentials
 AWS_CONFIG_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/config
+AGENT_SHA="latest"
 
-while getopts a:b:c:d:e:p:r:s:v: opt
+while getopts a:b:c:d:e:g:p:r:s:v: opt
 do
     case ${opt} in
         a) AMI_NAME_OVERWRITE=${OPTARG}
@@ -103,6 +106,8 @@ do
         d) ARCH=${OPTARG}
            ;;
         e) AWS_PROFILE=${OPTARG}
+           ;;
+        g) AGENT_SHA=${OPTARG}
            ;;
         p) PRODUCT=${OPTARG}
            ;;

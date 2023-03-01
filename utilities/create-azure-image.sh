@@ -11,6 +11,8 @@ function usage
     echo "  -s Client Secret"
     echo "  -i Subscription ID"
     echo "  -t Tenant ID"
+    echo "  optional:"
+    echo "  -g SHA that agent is built from"
     exit 1
 }
 
@@ -49,6 +51,7 @@ export PKR_VAR_image_gallery=${GALLERY_NAME}
 export PKR_VAR_image_definition=${IMAGE_DEFINITION}
 export PKR_VAR_image_name=${IMAGE_NAME}
 export PKR_VAR_image_version=${IMAGE_VERSION}
+export PKR_VAR_agent_sha=${AGENT_SHA}
 export PKR_VAR_region=${REGION}
 export PKR_VAR_replication_regions='${REPLICATION_REGIONS}'
 EOT
@@ -97,6 +100,7 @@ EOT
 
 #default config
 ARCH="amd64"
+AGENT_SHA="latest"
 DP_REVISION=1
 RESOURCE_GROUP="image-factory"
 GALLERY_NAME="capella"
@@ -104,7 +108,7 @@ PLATFORM="ubuntu20.04"
 REGION="eastus"
 REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastus2", "eastus", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "uksouth", "westeurope", "westus2", "westus3"]'
 
-while getopts p:r:v:b:c:d:s:i:t:o:w: opt
+while getopts p:r:v:b:c:d:g:s:i:t:o:w: opt
 do
     case ${opt} in
         o) IMAGE_NAME_OVERWRITE=${OPTARG}
@@ -122,6 +126,8 @@ do
         d) DP_REVISION=${OPTARG}
            ;;
         c) CLIENT_ID=${OPTARG}
+           ;;
+        g) AGENT_SHA=${OPTARG}
            ;;
         s) CLIENT_SECRET=${OPTARG}
            ;;

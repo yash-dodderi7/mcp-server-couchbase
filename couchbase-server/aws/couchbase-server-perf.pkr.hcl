@@ -30,6 +30,10 @@ variable "product_arch" {
   type = string
 }
 
+variable "agent_sha" {
+  type = string
+}
+
 locals {
   dp_backup_service = "dp-backup"
   setupDPBackupRsyslog = "sudo sh -c 'mv /tmp/dp-backup.conf /etc/rsyslog.d/dp-backup.conf && sudo systemctl restart rsyslog'"
@@ -63,14 +67,18 @@ source "amazon-ebs" "cc" {
     owners      = ["amazon"]
   }
   tags = {
+    owner         = "couchbase-capella"
     creator       = "build-team"
     arch          = "${local.ami_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
+    agent         = "${var.agent_sha}"
   }
   snapshot_tags = {
+    owner         = "couchbase-capella"
     creator       = "build-team"
     arch          = "${local.ami_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
+    agent         = "${var.agent_sha}"
   }
   ssh_username = "ec2-user"
 }
