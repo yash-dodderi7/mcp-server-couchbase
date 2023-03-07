@@ -11,6 +11,7 @@ function usage
     echo "  -a ARCH: x86_64 or aarch64"
     echo "  -e AWS_PROFILE: dbaas-test-0005-temp or dbaas-stage-0001-temp"
     echo "  -g REGION: i.e. us-east-1"
+    echo "  -s SHA that agent is built from"
     exit -1
 }
 
@@ -31,6 +32,7 @@ export PKR_VAR_product_bld_num=${TOY_BLD_NUM}
 export PKR_VAR_ami_name=${AMI_NAME}
 export PKR_VAR_product_platform=linux
 export PKR_VAR_product_arch=${ARCH}
+export PKR_VAR_agent_sha=${AGENT_SHA}
 EOT
 
     #packer variables specific for couchbase-server
@@ -76,8 +78,9 @@ AWS_SHARED_CREDENTIALS_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/creden
 AWS_CONFIG_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/config
 AWS_PROFILE=dbaas-test-0005-temp
 REGION="us-east-1"
+AGENT_SHA="latest"
 
-while getopts p:r:v:t:a:g:e: opt
+while getopts p:r:v:t:a:g:e:s: opt
 do
     case ${opt} in
         p) PRODUCT=${OPTARG}
@@ -93,6 +96,8 @@ do
         g) REGION=${OPTARG}
            ;;
         e) AWS_PROFILE=${OPTARG}
+           ;;
+        s) AGENT_SHA=${OPTARG}
            ;;
         *) usage
            ;;
