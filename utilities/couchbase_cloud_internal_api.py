@@ -48,7 +48,7 @@ class CouchbaseCloudInternalApi:
             logging.error('Unable to obtain JWT session token.')
             exit(1)
 
-    def ami_info(self):
+    def default_images_info(self):
         if self.env == 'dev':
             headers = {
                 'Authorization': f'Bearer {self.jwt_token}'
@@ -67,5 +67,5 @@ class CouchbaseCloudInternalApi:
 
         except requests.exceptions.RequestException as e:
             raise SystemExit(e)
-        amis = response.json()
-        return amis
+        images = response.json()
+        return images

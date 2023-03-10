@@ -402,11 +402,11 @@ if __name__ == "__main__":
         # Dev and stage use different motheds to access internal apis.
         dev = CouchbaseCloudInternalApi(
             args.dev_username, args.dev_password, 'dev', '')
-        dev_images = dev.ami_info()
-        default_amis.append(dev_images[cp_product_key]['image'])
+        dev_default_images = dev.default_images_info()
+        default_amis.append(dev_default_images[cp_product_key]['image'])
         stage = CouchbaseCloudInternalApi('', '', 'stage', args.stage_token)
-        stage_images = stage.ami_info()
-        default_amis.append(dev_images[cp_product_key]['image'])
+        stage_default_images = stage.default_images_info()
+        default_amis.append(stage_default_images[cp_product_key]['image'])
         default_amis = list(set(default_amis))
 
         # Default current doens't contain backup AMI for couchbase server.
