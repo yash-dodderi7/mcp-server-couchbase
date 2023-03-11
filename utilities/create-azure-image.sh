@@ -104,7 +104,7 @@ AGENT_SHA="latest"
 DP_REVISION=1
 RESOURCE_GROUP="image-factory"
 GALLERY_NAME="capella"
-PLATFORM="ubuntu20.04"
+PLATFORM="linux"
 REGION="eastus"
 REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastus2", "eastus", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "uksouth", "westeurope", "westus2", "westus3"]'
 

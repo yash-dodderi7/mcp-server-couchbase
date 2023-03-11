@@ -58,7 +58,8 @@ locals {
   enableServerless = "true"
   serverlessConfig = var.enableServerless == local.enableServerless ? local.setupServerless : ""
 
-  platform = "ubuntu20.04"
+  // server build compiles single linux deb file for Neo and newer.  Ubuntu and Debian packages are merely copies of linux deb file.
+  platform = "linux"
   source_image = "ubuntu-2004-focal-v20220419"
 
   exporter_arch = var.product_arch

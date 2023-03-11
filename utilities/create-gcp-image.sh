@@ -91,7 +91,7 @@ EOT
 #default config
 ARCH="amd64"
 DP_REVISION=1
-PLATFORM="ubuntu20.04"
+PLATFORM="linux"
 ZONE="us-central1-a"
 
 while getopts b:d:e:i:o:p:r:v: opt
