@@ -145,6 +145,13 @@ if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${C
 fi
 
 IMAGE_DEFINITION=${PRODUCT}-${VERSION}
+if [[ ${RELEASE} == "toybuilds" ]]; then
+    if [[ ${PRODUCT} == *"server" ]]; then
+      IMAGE_DEFINITION="toyimages-server"
+    else
+      IMAGE_DEFINITION="toyimages-backup"
+    fi
+fi
 
 # Current Supported Products:
 # 	couchbase-cloud-server couchbase-cloud-backup couchbase-serverless-server couchbase-serverless-backup
