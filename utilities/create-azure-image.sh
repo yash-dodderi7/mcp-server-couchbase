@@ -2,7 +2,7 @@
 
 function usage
 {
-    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -c <Client ID> -s <Client Secret> -i <Subscription ID> -t <Tenant ID>"
+    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -c <Client ID> -s <Client Secret> -i <Subscription ID> -t <Tenant ID> -o <CLUSTER_RELEASE_VERSION>"
     echo "  -p Product:  direct-nabula|couchbase-data-api"
     echo "  -r RELEASE: elixir"
     echo "  -v Version: i.e. 7.5.0, 3.1.0"
@@ -11,6 +11,7 @@ function usage
     echo "  -s Client Secret"
     echo "  -i Subscription ID"
     echo "  -t Tenant ID"
+    echo "  -o CLUSTER_RELEASE_VERSION"
     echo "  optional:"
     echo "  -g SHA that agent is built from"
     exit 1
@@ -26,14 +27,8 @@ function create_image
 {
     local IMAGE_PRODUCT="${1}"
     local PACKER_FILE="${2}"
-    IMAGE_VERSION=${BLD_NUM}.0.${DP_REVISION}
+    IMAGE_VERSION=${CLUSTER_RELEASE_VERSION}
     IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-v${IMAGE_VERSION}
-    if [[ ! -z ${IMAGE_NAME_OVERWRITE} ]]; then
-        IMAGE_NAME=${IMAGE_NAME_OVERWRITE}
-    fi
-    if [[ ! -z ${IMAGE_VERSION_OVERWRITE} ]]; then
-        IMAGE_VERSION=${IMAGE_VERSION_OVERWRITE}
-    fi
 
 #set environment variables used by packer file
 #make sure .env is created fresh
@@ -86,10 +81,13 @@ EOT
     az login --service-principal -u ${CLIENT_ID} -p=${CLIENT_SECRET} --tenant ${TENANT_ID}
     check_image=$(az image show --name ${IMAGE_NAME} \
         --resource-group ${RESOURCE_GROUP})
-    if [[ -z $check_image ]]; then
+    if [[ -z ${check_image} ]]; then
         echo "Creating ${IMAGE_NAME}..."
         packer init ${PACKER_FILE} || { echo "Failed to initiate ${PACKER_FILE}" ; exit 1; }
         packer build ${PACKER_FILE} || { echo "Failed to create IMAGE ${IMAGE_NAME}" ; exit 1; }
+        # Keep a list of IMAGES created.
+        # It is currently used to determinie if we should trigger qe-jenkins sanity_tests
+        echo "${IMAGE_NAME}" >> ${WORKSPACE}/IMAGES_CREATED
     else
         echo "${IMAGE_NAME} already exist"
     fi
@@ -101,19 +99,16 @@ EOT
 #default config
 ARCH="amd64"
 AGENT_SHA="latest"
-DP_REVISION=1
 RESOURCE_GROUP="image-factory"
 GALLERY_NAME="capella"
 PLATFORM="linux"
 REGION="eastus"
 REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastus2", "eastus", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "uksouth", "westeurope", "westus2", "westus3"]'
 
-while getopts p:r:v:b:c:d:g:s:i:t:o:w: opt
+while getopts p:r:v:b:c:g:s:i:t:o: opt
 do
     case ${opt} in
-        o) IMAGE_NAME_OVERWRITE=${OPTARG}
-           ;;
-        w)IMAGE_VERSION_OVERWRITE=${OPTARG}
+        o) CLUSTER_RELEASE_VERSION=${OPTARG}
            ;;
         p) PRODUCT=${OPTARG}
            ;;
@@ -122,8 +117,6 @@ do
         v) VERSION=${OPTARG}
            ;;
         b) BLD_NUM=${OPTARG}
-           ;;
-        d) DP_REVISION=${OPTARG}
            ;;
         c) CLIENT_ID=${OPTARG}
            ;;
@@ -189,6 +182,6 @@ case ${PRODUCT} in
         ;;
     *)
         echo "${PRODUCT} is not supported"
-        exit -1
+        exit 1
         ;;
 esac

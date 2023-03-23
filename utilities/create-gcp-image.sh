@@ -80,6 +80,9 @@ EOT
         echo "Creating ${IMAGE_NAME}..."
         packer init ${PACKER_FILE} || { echo "Failed to initiate ${PACKER_FILE}" ; exit 1; }
         packer build ${PACKER_FILE} || { echo "Failed to create IMAGE ${IMAGE_NAME}" ; exit 1; }
+        # Keep a list of IMAGES created.
+        # It is currently used to determinie if we should trigger qe-jenkins sanity_tests
+        echo "${IMAGE_NAME}" >> ${WORKSPACE}/IMAGES_CREATED
     else
         echo "${IMAGE_NAME} already exist"
     fi

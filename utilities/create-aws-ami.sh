@@ -79,10 +79,9 @@ EOT
     if [[ -z $check_image ]]; then
         echo "Creating ${AMI_NAME}..."
         AWS_PROFILE=${AWS_PROFILE} packer build ${PACKER_FILE} || { echo "Failed to create AMI ${AMI_NAME}" ; exit 1; }
-
-        # Keep a list of AMIs created.
+        # Keep a list of IMAGES created.
         # It is currently used to determinie if we should trigger qe-jenkins sanity_tests
-        echo "${AMI_NAME}" >> ${WORKSPACE}/AMIS_CREATED
+        echo "${IMAGE_NAME}" >> ${WORKSPACE}/IMAGES_CREATED
     else
         echo "${AMI_NAME} already exist on ${AWS_PROFILE}"
     fi
