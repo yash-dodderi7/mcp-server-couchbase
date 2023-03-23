@@ -45,6 +45,7 @@ locals {
   serverlessConfig = var.enableServerless == local.enableServerless ? local.setupServerless : ""
 
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
+  source_ami_name = var.product_version == "7.5.0" ? "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2" : "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
   exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
   process-exporter_version = "0.7.5"
@@ -59,7 +60,7 @@ source "amazon-ebs" "cc" {
   region        = "${var.region}"
   source_ami_filter {
     filters = {
-      name                = "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
+      name                = "${local.source_ami_name}"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
     }

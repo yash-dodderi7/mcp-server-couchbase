@@ -60,7 +60,7 @@ source "amazon-ebs" "cc" {
   region        = "${var.region}"
   source_ami_filter {
     filters = {
-      name                = "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
+      name                = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
     }
