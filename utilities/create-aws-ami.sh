@@ -37,7 +37,7 @@ function create_ami
 #make sure .env is created fresh
 rm .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
 cat <<EOT >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-export PKR_VAR_region=us-east-1
+export PKR_VAR_region=${AWS_REGION}
 export PKR_VAR_product_name=${AMI_PRODUCT}
 export PKR_VAR_product_version=${VERSION}
 export PKR_VAR_product_bld_num=${BLD_NUM}
@@ -90,18 +90,17 @@ EOT
 
 #default config
 ARCH="aarch64"
-AWS_SHARED_CREDENTIALS_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/credentials
-AWS_CONFIG_FILE=${WORKSPACE}/cloud-build-tools/utilities/.aws/config
 AGENT_SHA="latest"
+AWS_REGION=${AWS_REGION:-"us-east-1"}
+AWS_SHARED_CREDENTIALS_FILE=${AWS_SHARED_CREDENTIALS_FILE:-"${WORKSPACE}/cloud-build-tools/utilities/.aws/credentials"}
+AWS_CONFIG_FILE=${AWS_CONFIG_FILE:-"${WORKSPACE}/cloud-build-tools/utilities/.aws/config"}
 
-while getopts a:b:c:d:e:g:p:r:s:v: opt
+while getopts a:b:d:e:g:p:r:v: opt
 do
     case ${opt} in
         a) AMI_NAME_OVERWRITE=${OPTARG}
            ;;
         b) BLD_NUM=${OPTARG}
-           ;;
-        c) AWS_CONFIG_FILE=${OPTARG}
            ;;
         d) ARCH=${OPTARG}
            ;;
@@ -112,8 +111,6 @@ do
         p) PRODUCT=${OPTARG}
            ;;
         r) RELEASE=${OPTARG}
-           ;;
-        s) AWS_SHARED_CREDENTIALS_FILE=${OPTARG}
            ;;
         v) VERSION=${OPTARG}
            ;;
