@@ -14,6 +14,7 @@ function usage
     echo "  -o CLUSTER_RELEASE_VERSION"
     echo "  optional:"
     echo "  -g SHA that agent is built from"
+    echo "  -w custom image name"
     exit 1
 }
 
@@ -28,7 +29,11 @@ function create_image
     local IMAGE_PRODUCT="${1}"
     local PACKER_FILE="${2}"
     IMAGE_VERSION=${CLUSTER_RELEASE_VERSION}
-    IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-v${IMAGE_VERSION}
+    if [[ -z ${IMAGE_NAME_OVERWRITE} ]]; then
+      IMAGE_NAME=${IMAGE_PRODUCT}-${VERSION}-v${IMAGE_VERSION}
+    else
+      IMAGE_NAME=${IMAGE_NAME_OVERWRITE}
+    fi
 
 #set environment variables used by packer file
 #make sure .env is created fresh
@@ -105,10 +110,12 @@ PLATFORM="linux"
 REGION="eastus"
 REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastus2", "eastus", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "uksouth", "westeurope", "westus2", "westus3"]'
 
-while getopts p:r:v:b:c:g:s:i:t:o: opt
+while getopts p:r:v:b:c:g:s:i:t:o:w: opt
 do
     case ${opt} in
         o) CLUSTER_RELEASE_VERSION=${OPTARG}
+           ;;
+        w) IMAGE_NAME_OVERWRITE=${OPTARG}
            ;;
         p) PRODUCT=${OPTARG}
            ;;
