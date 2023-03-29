@@ -146,11 +146,7 @@ fi
 
 IMAGE_DEFINITION=${PRODUCT}-${VERSION}
 if [[ ${RELEASE} == "toybuilds" ]]; then
-    if [[ ${PRODUCT} == *"server" ]]; then
-      IMAGE_DEFINITION="toyimages-server"
-    else
-      IMAGE_DEFINITION="toyimages-backup"
-    fi
+  IMAGE_DEFINITION="Toy-${PRODUCT}-${VERSION}"
 fi
 
 # Current Supported Products:
