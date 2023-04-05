@@ -139,6 +139,11 @@ build {
    source = "dp-firewall.service"
   }
 
+  provisioner "file" {
+    destination = "/tmp/agent.config"
+    source = "shoreline.agent.config"
+  }
+
   provisioner "shell" {
     inline = [
       "sleep 10",
@@ -202,6 +207,17 @@ build {
       // Add imports directory
       "sudo mkdir -p /home/ec2-user/imports",
       "sudo chown ec2-user:ec2-user /home/ec2-user/imports",
+      // Install Shoreline agent - startup handled by dp-agent
+      "sudo mkdir -p /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
+      "sudo chown ec2-user:ec2-user /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
+      "sudo mv /tmp/agent.config /home/ec2-user/shoreline",
+      "pushd /home/ec2-user/shoreline",
+      "curl -L 'https://shorelinedownload.blob.core.windows.net/agent/vm_base_install_0.6.3.sh' -o vm_base_install.sh",
+      "chmod +x vm_base_install.sh",
+      "sudo ./vm_base_install.sh",
+      "sudo systemctl disable shoreline.shoreline.service",
+      // Install jq to enable Shoreline users to format and manipulate API output
+      "sudo yum install -y jq",
       # Setup Rsyslog conf for dp-backup
       "${local.useDPBackupConf}",
       # Enable serverless

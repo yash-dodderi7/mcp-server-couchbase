@@ -142,6 +142,11 @@ build {
    source = "fluent-bit.repo"
   }
 
+  provisioner "file" {
+    destination = "/tmp/agent.config"
+    source = "shoreline.agent.config"
+  }
+
   provisioner "shell" {
     inline = [
       "sleep 10",
@@ -188,7 +193,18 @@ build {
       "sudo mv /tmp/fluent-bit.repo /etc/yum.repos.d/.",
       "sudo yum install fluent-bit -y",
       "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf",
-      "sudo systemctl enable fluent-bit.service"
+      "sudo systemctl enable fluent-bit.service",
+      // Install Shoreline agent - startup handled by dp-serverless
+      "sudo mkdir -p /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
+      "sudo chown ec2-user:ec2-user /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
+      "sudo mv /tmp/agent.config /home/ec2-user/shoreline",
+      "pushd /home/ec2-user/shoreline",
+      "curl -L 'https://shorelinedownload.blob.core.windows.net/agent/vm_base_install_0.6.3.sh' -o vm_base_install.sh",
+      "chmod +x vm_base_install.sh",
+      "sudo ./vm_base_install.sh",
+      "sudo systemctl disable shoreline.shoreline.service",
+      // Install jq to enable Shoreline users to format and manipulate API output
+      "sudo yum install -y jq"
     ]
   }
 }
