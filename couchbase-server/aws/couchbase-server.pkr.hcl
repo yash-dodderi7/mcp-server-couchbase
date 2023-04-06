@@ -208,6 +208,8 @@ build {
       "sudo mkdir -p /home/ec2-user/imports",
       "sudo chown ec2-user:ec2-user /home/ec2-user/imports",
       // Install Shoreline agent - startup handled by dp-agent
+      "sudo useradd shoreline",
+      "sudo usermod -a -G shoreline ec2-user",
       "sudo mkdir -p /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
       "sudo chown ec2-user:ec2-user /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
       "sudo mv /tmp/agent.config /home/ec2-user/shoreline",

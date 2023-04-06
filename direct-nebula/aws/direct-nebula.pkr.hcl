@@ -195,6 +195,8 @@ build {
       "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf",
       "sudo systemctl enable fluent-bit.service",
       // Install Shoreline agent - startup handled by dp-serverless
+      "sudo useradd shoreline",
+      "sudo usermod -a -G shoreline ec2-user",
       "sudo mkdir -p /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
       "sudo chown ec2-user:ec2-user /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
       "sudo mv /tmp/agent.config /home/ec2-user/shoreline",
