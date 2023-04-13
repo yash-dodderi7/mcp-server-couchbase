@@ -205,6 +205,7 @@ build {
       "chmod +x vm_base_install.sh",
       "sudo ./vm_base_install.sh",
       "sudo systemctl disable shoreline.shoreline.service",
+      "sudo systemctl disable shoreline.node_exporter.service",
       // Install jq to enable Shoreline users to format and manipulate API output
       "sudo yum install -y jq"
     ]
