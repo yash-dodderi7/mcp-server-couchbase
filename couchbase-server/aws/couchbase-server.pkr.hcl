@@ -209,18 +209,21 @@ build {
       // Add imports directory
       "sudo mkdir -p /home/ec2-user/imports",
       "sudo chown ec2-user:ec2-user /home/ec2-user/imports",
-      // Install Shoreline agent - startup handled by dp-agent
-      "sudo useradd shoreline",
-      "sudo usermod -a -G shoreline ec2-user",
-      "sudo mkdir -p /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
-      "sudo chown ec2-user:ec2-user /home/ec2-user/shoreline /var/lib/shoreline/agent/secrets",
+      // Install the Shoreline agent
+      "sudo mkdir -p /home/ec2-user/shoreline",
       "sudo mv /tmp/agent.config /home/ec2-user/shoreline",
+      "sudo chown -R ec2-user:ec2-user /home/ec2-user/shoreline",
       "pushd /home/ec2-user/shoreline",
       "curl -L 'https://shorelinedownload.blob.core.windows.net/agent/vm_base_install_0.6.3.sh' -o vm_base_install.sh",
       "chmod +x vm_base_install.sh",
       "sudo ./vm_base_install.sh",
-      "sudo systemctl disable shoreline.shoreline.service",
-      "sudo systemctl disable shoreline.node_exporter.service",
+      // Shoreline start-up is handled by dp-agent. Docker & containerd will start as dependencies once the Shoreline agent starts
+      "sudo systemctl disable shoreline.shoreline.service shoreline.node_exporter.service docker.service containerd.service",
+      // Create the Shoreline secrets directory, allowing dp-agent to bootstrap it
+      "sudo mkdir -p /var/lib/shoreline/agent/secrets",
+      "sudo chown ec2-user:ec2-user /var/lib/shoreline/agent/secrets",
+      // Prevent the agent startup script from printing secrets to the system log
+      "sudo sed -i 's/^set -o xtrace/#set -o xtrace/g' /usr/bin/shoreline-agent",
       // Install jq to enable Shoreline users to format and manipulate API output
       "sudo yum install -y jq",
       # Setup Rsyslog conf for dp-backup
