@@ -40,7 +40,7 @@ locals {
   // only inject rsyslog conf for dp-backup
   useDPBackupConf = var.dp_service == local.dp_backup_service ? local.setupDPBackupRsyslog : ""
 
-  setupServerless = "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo serverless > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
+  setupServerless = "sudo useradd couchbase && sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo serverless > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
   enableServerless = "true"
   serverlessConfig = var.enableServerless == local.enableServerless ? local.setupServerless : ""
 
@@ -165,6 +165,8 @@ build {
       //     numactl: numactl
       //     ntp: ntpdate, ntpq
       "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata",
+      # Enable serverless
+      "${local.serverlessConfig}",
       "sudo yum install -y /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm",
       "rm /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm",
       // Setup the directory for the TLS certificate and key
@@ -222,9 +224,7 @@ build {
       // Install jq to enable Shoreline users to format and manipulate API output
       "sudo yum install -y jq",
       # Setup Rsyslog conf for dp-backup
-      "${local.useDPBackupConf}",
-      # Enable serverless
-      "${local.serverlessConfig}"
+      "${local.useDPBackupConf}"
     ]
   }
 }
