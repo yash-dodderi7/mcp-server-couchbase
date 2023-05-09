@@ -200,11 +200,11 @@ build {
       "sudo mv /tmp/agent.config /home/ec2-user/shoreline",
       "sudo chown -R ec2-user:ec2-user /home/ec2-user/shoreline",
       "pushd /home/ec2-user/shoreline",
-      "curl -L 'https://shorelinedownload.blob.core.windows.net/agent/vm_base_install_0.6.3.sh' -o vm_base_install.sh",
+      "curl -L 'https://shorelinedownload.blob.core.windows.net/agent/vm_base_install_0.6.4.sh' -o vm_base_install.sh",
       "chmod +x vm_base_install.sh",
       "sudo ./vm_base_install.sh",
       // Shoreline start-up is handled by dp-agent. Docker & containerd will start as dependencies once the Shoreline agent starts
-      "sudo systemctl disable shoreline.shoreline.service shoreline.node_exporter.service docker.service containerd.service",
+      "sudo systemctl disable shoreline.shoreline.service shoreline.node_exporter.service",
       // Create the Shoreline secrets directory, allowing dp-agent to bootstrap it
       "sudo mkdir -p /var/lib/shoreline/agent/secrets",
       "sudo chown ec2-user:ec2-user /var/lib/shoreline/agent/secrets",
