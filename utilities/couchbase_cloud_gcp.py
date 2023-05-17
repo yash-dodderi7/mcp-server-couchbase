@@ -151,21 +151,3 @@ if __name__ == '__main__':
     os.mkdir('.gcp')
     with open(f'.gcp/{env}', 'w') as file:
         file.write(access_token_impersonated)
-
-    exit()
-    credentials = google.oauth2.credentials.Credentials(access_token_impersonated)
-    service = discovery.build('compute', 'v1', credentials=credentials)
-
-    project = 'rcif-test-a4cacd445ada33ff'  # TODO: Update placeholder value.
-
-    #GCP is pretty bad with their filtering capabilities.
-    #This could potentially break.
-    request = service.images().list(project=project, filter = "name eq couchbase-cloud-server.*")
-    #request = service.images().list(project=project)
-    while request is not None:
-        response = request.execute()
-        for image in response['items']:
-            # TODO: Change code below to process each `image` resource:
-            pprint(image)
-
-        request = service.images().list_next(previous_request=request, previous_response=response)
