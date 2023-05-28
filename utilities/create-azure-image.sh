@@ -145,7 +145,7 @@ if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${C
 fi
 
 IMAGE_DEFINITION=${PRODUCT}-${VERSION}
-if [[ ${RELEASE} == "toybuilds" ]]; then
+if [[ "${TOY_RELEASE}" == "toybuilds" ]]; then
   IMAGE_DEFINITION="Toy-${PRODUCT}-${VERSION}"
 fi
 
