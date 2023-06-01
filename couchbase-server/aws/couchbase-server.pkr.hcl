@@ -221,7 +221,7 @@ build {
       "sudo systemctl disable shoreline.shoreline.service shoreline.node_exporter.service",
       // Create the Shoreline secrets directory, allowing dp-agent to bootstrap it
       "sudo mkdir -p /var/lib/shoreline/agent/secrets",
-      "sudo chown ec2-user:ec2-user /var/lib/shoreline/agent/secrets",
+      "sudo chown shoreline:shoreline /var/lib/shoreline/agent/secrets",
       // Prevent the agent startup script from printing secrets to the system log
       "sudo sed -i 's/^set -o xtrace/#set -o xtrace/g' /usr/bin/shoreline-agent",
       // Install jq to enable Shoreline users to format and manipulate API output
