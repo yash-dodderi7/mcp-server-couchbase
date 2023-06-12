@@ -194,6 +194,7 @@ build {
       "sudo mv /tmp/fluent-bit.repo /etc/yum.repos.d/.",
       "sudo yum install fluent-bit -y",
       "sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf",
+      "sudo mkdir /var/log/fluent-bit",
       "sudo systemctl enable fluent-bit.service",
       // Install the Shoreline agent
       "sudo mkdir -p /home/ec2-user/shoreline",
