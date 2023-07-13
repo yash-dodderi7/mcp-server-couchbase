@@ -143,7 +143,7 @@ build {
       "sudo chown root:root /etc/systemd/journald.conf",
       "sudo chmod 755 /etc/systemd/journald.conf",
       // Set swappiness to 1 to avoid swapping excessively
-      "sudo sh -c 'echo \"vm.swappiness = 1\" >> /etc/sysctl.conf'",
+      "sudo sh -c 'echo \"vm.swappiness = 0\" >> /etc/sysctl.conf'",
       "sudo sysctl vm.swappiness=0",
       // Install dependent packages:
       "sudo apt update",
