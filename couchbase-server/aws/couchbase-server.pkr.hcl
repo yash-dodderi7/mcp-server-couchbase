@@ -40,6 +40,11 @@ locals {
   // only inject rsyslog conf for dp-backup
   useDPBackupConf = var.dp_service == local.dp_backup_service ? local.setupDPBackupRsyslog : ""
 
+  // install & enable dp-observer
+  setupDPObserver = "sudo mv /tmp/dp-observer.service /lib/systemd/system/dp-observer.service && sudo gunzip -c /tmp/dp-observer.gz > /home/ec2-user/dp-observer && sudo chmod +x /home/ec2-user/dp-observer"
+  dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
+
+  // configure serverless deployment
   setupServerless = "sudo useradd couchbase && sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo serverless > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
   enableServerless = "true"
   serverlessConfig = var.enableServerless == local.enableServerless ? local.setupServerless : ""
@@ -84,7 +89,7 @@ source "amazon-ebs" "cc" {
   ssh_username = "ec2-user"
 }
 
-# a build block invokes sources and runs provisioning steps on them.
+// a build block invokes sources and runs provisioning steps on them.
 build {
   sources = ["source.amazon-ebs.cc"]
 
@@ -101,6 +106,26 @@ build {
   provisioner "file" {
     destination = "/tmp/"
     source      = "${var.dp_service}.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "agents/${var.product_arch}/dp-observer.gz"
+  }
+
+  provisioner "file" {
+   destination = "/tmp/dp-observer.service"
+   source = "dp-observer.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "agents/${var.product_arch}/dp-observer.gz"
+  }
+
+  provisioner "file" {
+   destination = "/tmp/dp-observer.service"
+   source = "dp-observer.service"
   }
 
   provisioner "file" {
@@ -165,7 +190,7 @@ build {
       //     numactl: numactl
       //     ntp: ntpdate, ntpq
       "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata",
-      # Enable serverless
+      // Enable serverless
       "${local.serverlessConfig}",
       "sudo yum install -y /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm",
       "rm /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm",
@@ -226,8 +251,11 @@ build {
       "sudo sed -i 's/^set -o xtrace/#set -o xtrace/g' /usr/bin/shoreline-agent",
       // Install jq to enable Shoreline users to format and manipulate API output
       "sudo yum install -y jq",
-      # Setup Rsyslog conf for dp-backup
-      "${local.useDPBackupConf}"
+      // Setup Rsyslog conf for dp-backup
+      "${local.useDPBackupConf}",
+      // Install & configure dp-observer
+      "${local.dPObserverConfig}",
+      "sudo rm -f /tmp/dp-observer*"
     ]
   }
 }

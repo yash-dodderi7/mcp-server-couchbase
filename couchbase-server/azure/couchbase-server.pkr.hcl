@@ -65,6 +65,10 @@ locals {
   // only inject rsyslog conf for dp-backup
   useDPBackupConf = var.dp_service == local.dp_backup_service ? local.setupDPBackupRsyslog : ""
 
+  // install & enable dp-observer
+  setupDPObserver = "sudo mv /tmp/dp-observer.service /lib/systemd/system/dp-observer.service && sudo gunzip -c /tmp/dp-observer.gz > /home/ec2-user/dp-observer && sudo chmod +x /home/ec2-user/dp-observer"
+  dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
+
   setupServerless = "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo serverless > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
   enableServerless = "true"
   serverlessConfig = var.enableServerless == local.enableServerless ? local.setupServerless : ""
@@ -81,7 +85,7 @@ locals {
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
 }
 
-# Azure machine image Builder
+// Azure machine image Builder
 source "azure-arm" "cc" {
   azure_tags = {
     owner                = "couchbase-capella"
@@ -117,7 +121,7 @@ source "azure-arm" "cc" {
   ssh_username                       = "ec2-user"
 }
 
-# a build block invokes sources and runs provisioning steps on them.
+// a build block invokes sources and runs provisioning steps on them.
 build {
   sources = ["source.azure-arm.cc"]
 
@@ -203,6 +207,8 @@ build {
       //     ntp: ntpdate, ntpq
       "sudo apt update",
       "sudo apt install -y nmap ncat ntp lshw lsof sysstat net-tools numactl tzdata wget rsync",
+      // Enable serverless
+      "${local.serverlessConfig}",
       "sudo apt install -y /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
       "sudo rm /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
       // Setup the directory for the TLS certificate and key
@@ -245,10 +251,11 @@ build {
       // Add imports directory
       "sudo mkdir -p /home/ec2-user/imports",
       "sudo chown ec2-user:ec2-user /home/ec2-user/imports",
-      # Setup Rsyslog conf for dp-backup
+      // Setup Rsyslog conf for dp-backup
       "${local.useDPBackupConf}",
-      # Enable serverless
-      "${local.serverlessConfig}",
+      // Install & configure dp-observer
+      "${local.dPObserverConfig}",
+      "sudo rm -f /tmp/dp-observer*",
       // Install the Shoreline agent
       "sudo mkdir -p /home/ec2-user/shoreline",
       "sudo mv /tmp/agent.config /home/ec2-user/shoreline",
