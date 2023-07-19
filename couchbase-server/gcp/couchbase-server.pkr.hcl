@@ -116,6 +116,16 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
+    source      = "agents/${var.product_arch}/dp-observer.gz"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "dp-observer.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
     source      = "node-exporter.service"
   }
 
