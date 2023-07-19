@@ -30,23 +30,6 @@ class CouchbaseCloudAWS:
             role = AWSAssumeRole(profile, env)
             role.write_config()
 
-    def download_agents(self, arch):
-        # s3 bucket is on prod account
-        s3_info = self.environments['production']['aws']['s3']
-        profile_name = self.environments['production']['aws']['s3']['profile']
-        s3_session = boto3.Session(profile_name=profile_name)
-        s3_resource = s3_session.resource('s3')
-        for file in s3_info['files'][arch]:
-            name = os.path.basename(s3_info['files'][arch][file])
-            path = s3_info['files'][arch][file]
-            try:
-                s3_resource.Bucket(s3_info['bucket']).download_file(path, name)
-            except botocore.exceptions.ClientError as e:
-                if e.response['Error']['Code'] == '404':
-                    logging.error(f'{path} does not exist.')
-                else:
-                    raise
-
     def get_ami_by_id(self, client, ami_id):
         response = client.describe_images(ImageIds=[ami_id])
         return response['Images']
@@ -269,14 +252,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser('AWS Cloud Utilities', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
 
-    subparser_download_agents = subparsers.add_parser(
-        'download_agents', help='Download DP Agents')
-    subparser_download_agents.add_argument(
-        '--arch',
-        type=str,
-        default="aarch64",
-        help='DP Agent arch: aarch64 or x86_64')
-
     subparser_get_secret = subparsers.add_parser(
         'get_secret', help='Retreat secret value from AWS secret manager')
     subparser_get_secret.add_argument(
@@ -431,7 +406,5 @@ if __name__ == "__main__":
             args.age,
             default_amis)
 
-    if args.cmd == 'download_agents':
-        couchbasecloudaws.download_agents(args.arch)
     if args.cmd == 'get_secret':
         couchbasecloudaws.get_secret(args.profile, args.secret_name)

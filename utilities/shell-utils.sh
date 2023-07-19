@@ -88,7 +88,7 @@ function check_pids {
         if [[ ${return_code} != "0" ]]; then
             echo "One of the child processes failed.  Terminating..."
             echo "PID = ${pid}; return_code = ${return_code}"
-            exit -1
+            exit 1
         fi
     done
 }
@@ -105,7 +105,8 @@ function init_aws_config {
                ;;
             w) aws_custom_config_dir=${OPTARG}
                ;;
-            *) echo "Usage: $0 -p <profile name> -i <AWS Access Key ID> -k <AWS Secret Access Key> -w <AWS custom config dir>"
+            *) echo "Usage: $0 -p <profile name> -i <AWS Access Key ID>"\
+               "-k <AWS Secret Access Key> -w <AWS custom config dir>"
                exit 1
                ;;
         esac
@@ -129,4 +130,22 @@ EOT
 
     export AWS_SHARED_CREDENTIALS_FILE=${aws_custom_config_dir}/credentials
     export AWS_CONFIG_FILE=${aws_custom_config_dir}/config
+}
+
+function download_agents {
+    arch=${1}
+    dp_arch=${2}
+    mkdir -p agents/${arch}
+    for agent in dp-agent dp-backup dp-observer; do
+        aws s3 cp --quiet \
+            s3://cbc-internal-release/releases/${agent}/latest . \
+            --profile dbaas-prod-0001-temp
+        export DP_AGENT_SHA=$(cat latest)
+        echo "Downloading ${agent}: ${DP_AGENT_SHA}"
+        aws s3 cp --quiet \
+            s3://cbc-internal-release/releases/${agent}/aws/${DP_AGENT_SHA}/linux-${dp_arch} \
+            agents/${arch} \
+            --recursive \
+            --profile dbaas-prod-0001-temp
+    done
 }
