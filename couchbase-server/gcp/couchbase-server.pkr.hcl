@@ -180,6 +180,11 @@ build {
       // Set swappiness to 1 to avoid swapping excessively
       "sudo sh -c 'echo \"vm.swappiness = 0\" >> /etc/sysctl.conf'",
       "sudo sysctl vm.swappiness=0",
+      //MB-57636 configure keepalive settings
+      "sudo sh -c 'echo net.ipv4.tcp_keepalive_time=480 >> /etc/sysctl.conf'",
+      "sudo sh -c 'echo net.ipv4.tcp_keepalive_intvl=75 >> /etc/sysctl.conf'",
+      "sudo sh -c 'echo net.ipv4.tcp_keepalive_probes=9 >> /etc/sysctl.conf'",
+      "sudo sysctl -w net.ipv4.tcp_keepalive_time=480 net.ipv4.tcp_keepalive_intvl=75 net.ipv4.tcp_keepalive_probes=9",
       // Install dependent packages:
       //   tzdata: timezone info used by some N1QL functions
       //   dependencies for system commands used by cbcollect_info:
