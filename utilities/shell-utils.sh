@@ -135,6 +135,7 @@ EOT
 function download_agents {
     arch=${1}
     dp_arch=${2}
+    cloud=${3}
     mkdir -p agents/${arch}
     for agent in dp-agent dp-backup dp-observer; do
         aws s3 cp --quiet \
@@ -143,7 +144,7 @@ function download_agents {
         export DP_AGENT_SHA=$(cat latest)
         echo "Downloading ${agent}: ${DP_AGENT_SHA}"
         aws s3 cp --quiet \
-            s3://cbc-internal-release/releases/${agent}/aws/${DP_AGENT_SHA}/linux-${dp_arch} \
+            s3://cbc-internal-release/releases/${agent}/${cloud}/${DP_AGENT_SHA}/linux-${dp_arch} \
             agents/${arch} \
             --recursive \
             --profile dbaas-prod-0001-temp
