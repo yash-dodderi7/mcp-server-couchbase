@@ -108,7 +108,7 @@ RESOURCE_GROUP="image-factory"
 GALLERY_NAME="capella"
 PLATFORM="linux"
 REGION="eastus"
-REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastasia", "eastus", "eastus2", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "southcentralus", "uksouth", "westeurope", "westus2", "westus3"]'
+REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastasia", "eastus", "eastus2", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "southcentralus", "switzerlandnorth", "uksouth", "westeurope", "westus2", "westus3"]'
 
 while getopts p:r:v:b:c:g:s:i:t:o:w: opt
 do
