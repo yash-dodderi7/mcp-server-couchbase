@@ -22,7 +22,7 @@ variable "dp_service" {
   type = string
 }
 
-variable "enableServerless" {
+variable "ns_server_profile" {
   type = string
 }
 
@@ -44,10 +44,8 @@ locals {
   setupDPObserver = "sudo mv /tmp/dp-observer.service /lib/systemd/system/dp-observer.service && sudo gunzip -c /tmp/dp-observer.gz > /home/ec2-user/dp-observer && sudo chmod +x /home/ec2-user/dp-observer && sudo systemctl enable dp-observer.service"
   dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
 
-  // configure serverless deployment
-  setupServerless = "sudo useradd couchbase && sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo serverless > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
-  enableServerless = "true"
-  serverlessConfig = var.enableServerless == local.enableServerless ? local.setupServerless : ""
+  // configure ns_server profile
+  nsServerProfileConfig = "sudo useradd couchbase && sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
 
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
   source_ami_name = local.ami_arch == "arm64"  ? "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2" : "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
@@ -180,8 +178,8 @@ build {
       //     numactl: numactl
       //     ntp: ntpdate, ntpq
       "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata",
-      // Enable serverless
-      "${local.serverlessConfig}",
+      // Setup ns_server profile
+      "${local.nsServerProfileConfig}",
       "sudo yum install -y /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm",
       "rm /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-amzn2.${var.product_arch}.rpm",
       // Setup the directory for the TLS certificate and key

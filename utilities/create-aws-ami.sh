@@ -50,19 +50,19 @@ EOT
     #packer variables specific for couchbase-server
     case ${AMI_PRODUCT} in
         couchbase-serverless-server*)
-            echo "export PKR_VAR_enableServerless=true" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-serverless-backup*)
-            echo "export PKR_VAR_enableServerless=true" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-server*)
-            echo "export PKR_VAR_enableServerless=false" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-backup*)
-            echo "export PKR_VAR_enableServerless=false" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         *)

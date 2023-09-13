@@ -51,19 +51,19 @@ EOT
     #packer variables specific for couchbase-server
     case ${IMAGE_PRODUCT} in
         couchbase-serverless-server*)
-            echo "export PKR_VAR_enableServerless=true" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         couchbase-serverless-backup*)
-            echo "export PKR_VAR_enableServerless=true" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         couchbase-cloud-server*)
-            echo "export PKR_VAR_enableServerless=false" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         couchbase-cloud-backup*)
-            echo "export PKR_VAR_enableServerless=false" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         *)
