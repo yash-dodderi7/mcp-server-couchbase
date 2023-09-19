@@ -152,7 +152,7 @@ class CouchbaseCloudAWS:
         # retries are mainly useful for waiting for AMI to become available
         config = Config(
             retries={
-                'max_attempts': 10,
+                'max_attempts': 15,
                 'mode': 'standard'
             }
         )
