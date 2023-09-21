@@ -131,7 +131,7 @@ fi
 case ${PRODUCT} in
     couchbase-cloud*)
         packer_file="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-amzn2.${ARCH}.rpm"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         download_files
         create_ami ${PRODUCT} ${packer_file}
@@ -142,7 +142,7 @@ case ${PRODUCT} in
         else
             packer_file="couchbase-server.pkr.hcl"
         fi
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-amzn2.${ARCH}.rpm"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         download_files
 
