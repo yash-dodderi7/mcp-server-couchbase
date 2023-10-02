@@ -82,6 +82,11 @@ build {
   }
 
   provisioner "file" {
+    destination = "/tmp/"
+    source      = "fluent-bit.service"
+  }
+
+  provisioner "file" {
     destination = "/tmp/journald.conf"
     source      = "journald.conf"
   }
@@ -139,6 +144,18 @@ build {
       "sudo systemctl enable sgw-firewall.service",
       // Add sync_gateway user to ec2-user group, so it can read files created by ec2-user
       "sudo usermod -a -G ec2-user sync_gateway",
+      // Install fluent-bit
+      "cat << EOF > /tmp/fluent-bit.repo",
+      "[fluent-bit]",
+      "name = Fluent Bit",
+      "baseurl = https://packages.fluentbit.io/amazonlinux/2/",
+      "gpgcheck=1",
+      "gpgkey=https://packages.fluentbit.io/fluentbit.key",
+      "enabled=1",
+      "EOF",
+      "sudo mv /tmp/fluent-bit.repo /etc/yum.repos.d/fluent-bit.repo",
+      "sudo yum install -y fluent-bit",
+      "sudo mv /tmp/fluent-bit.service /usr/lib/systemd/system/fluent-bit.service",
     ]
   }
 }

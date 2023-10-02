@@ -119,6 +119,11 @@ build {
   }
 
   provisioner "file" {
+    destination = "/tmp/"
+    source      = "fluent-bit.service"
+  }
+
+  provisioner "file" {
     destination = "/tmp/journald.conf"
     source      = "journald.conf"
   }
@@ -178,6 +183,12 @@ build {
       "sudo systemctl enable sgw-firewall.service",
       // Add sync_gateway user to ec2-user group, so it can read files created by ec2-user
       "sudo usermod -a -G ec2-user sync_gateway",
+      // Install fluent-bit
+      "curl https://packages.fluentbit.io/fluentbit.key | gpg --dearmor | sudo tee /usr/share/keyrings/fluentbit-keyring.gpg",
+      "echo \"deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/ubuntu/focal focal main\" | sudo tee -a /etc/apt/sources.list",
+      "sudo apt-get update",
+      "sudo apt-get install -y fluent-bit",
+      "sudo mv /tmp/fluent-bit.service /usr/lib/systemd/system/fluent-bit.service",
     ]
   }
 }
