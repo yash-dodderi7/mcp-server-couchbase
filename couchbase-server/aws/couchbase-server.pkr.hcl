@@ -61,6 +61,7 @@ source "amazon-ebs" "cc" {
   ami_name      = "${var.ami_name}"
   instance_type = "${local.instance_type}"
   region        = "${var.region}"
+  ssh_timeout   = "15m"
   source_ami_filter {
     filters = {
       name                = "${local.source_ami_name}"

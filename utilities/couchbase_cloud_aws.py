@@ -53,11 +53,11 @@ class CouchbaseCloudAWS:
     def wait_for_ami_to_be_available(self, client, ami_id):
         # It takes some time for newly created AMI to become available.
         attempts = 0
-        max_attempts = 40
+        max_attempts = 300
         ami = self.get_ami_by_id(client, ami_id)
         while ami[0]['State'] != 'available':
             attempts += 1
-            time.sleep(30)
+            time.sleep(10)
             if attempts <= max_attempts:
                 ami = self.get_ami_by_id(client, ami_id)
                 if ami[0]['State'] == 'failed':
@@ -149,13 +149,6 @@ class CouchbaseCloudAWS:
 
     def copy_ami(self, source_profile, source_region,
                  dest_profile, dest_region, ami_name):
-        # retries are mainly useful for waiting for AMI to become available
-        config = Config(
-            retries={
-                'max_attempts': 15,
-                'mode': 'standard'
-            }
-        )
         source_session = boto3.Session(profile_name=source_profile)
         source_client = source_session.client('ec2', region_name=source_region)
         dest_session = boto3.Session(profile_name=dest_profile)
@@ -209,17 +202,12 @@ class CouchbaseCloudAWS:
             Name=source_image['Name'],
             Description=description,
             SourceImageId=source_image['ImageId'],
-            SourceRegion=source_region
+            SourceRegion=source_region,
+            CopyImageTags=True
         )
+
         # Make sure AMI is ready before moving on to the next step.
         self.wait_for_ami_to_be_available(dest_client, dest_image['ImageId'])
-
-        # Recreate tags since copy_image doesn't copy them
-        for tag in source_image['Tags']:
-            dest_client.create_tags(
-                Resources=[dest_image['ImageId']],
-                Tags=[{'Key': tag['Key'], 'Value': tag['Value']}]
-            )
 
         # Unshare the image in source account
         source_client.modify_image_attribute(
