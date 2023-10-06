@@ -153,7 +153,7 @@ class CouchbaseCloudAWS:
         source_client = source_session.client('ec2', region_name=source_region)
         dest_session = boto3.Session(profile_name=dest_profile)
         dest_client = dest_session.client(
-            'ec2', region_name=dest_region, config=config)
+            'ec2', region_name=dest_region)
 
         dest_sts = dest_session.client('sts')
         dest_account_id = dest_sts.get_caller_identity()['Account']
