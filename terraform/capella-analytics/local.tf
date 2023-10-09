@@ -4,7 +4,7 @@ data "aws_caller_identity" "current" {}
 #   264138468394: Capella sbx env (dbaas5)
 #   516524556673: cb-qe
 #   955582452726: cb-perf
-#   768250113943: AWS dev
+#   239609595263: AWS dev
 
 
 locals {
@@ -22,7 +22,7 @@ locals {
     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root",
     "arn:aws:iam::264138468394:root",
     "arn:aws:iam::516524556673:root",
-    "arn:aws:iam::768250113943:root",
+    "arn:aws:iam::239609595263:root",
     "arn:aws:iam::955582452726:root"
   ]
   repo_push_access_arns  = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
