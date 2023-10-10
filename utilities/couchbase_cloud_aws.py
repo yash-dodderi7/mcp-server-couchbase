@@ -202,12 +202,18 @@ class CouchbaseCloudAWS:
             Name=source_image['Name'],
             Description=description,
             SourceImageId=source_image['ImageId'],
-            SourceRegion=source_region,
-            CopyImageTags=True
+            SourceRegion=source_region
         )
 
         # Make sure AMI is ready before moving on to the next step.
         self.wait_for_ami_to_be_available(dest_client, dest_image['ImageId'])
+
+        # boto3 copy_image with CopyImageTags doesn't copy image tags across accounts
+        # Hence, create_tags is used to recreate the tags.
+        dest_client.create_tags(
+            Resources=[dest_image['ImageId']],
+            Tags=source_image['Tags']
+        )
 
         # Unshare the image in source account
         source_client.modify_image_attribute(
@@ -232,7 +238,6 @@ class CouchbaseCloudAWS:
                     },
                     OperationType='remove',
                 )
-
 
 if __name__ == "__main__":
     couchbasecloudaws = CouchbaseCloudAWS('cbc-main')
