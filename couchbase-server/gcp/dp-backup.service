@@ -21,10 +21,13 @@ ExecStart=/home/ec2-user/dp-backup
 PermissionsStartOnly=true
 ExecStartPre=/usr/bin/mkdir -p /home/ec2-user/logs
 ExecStartPre=/usr/bin/chmod 755 /home/ec2-user/logs
+ExecStartPre=/usr/bin/chown ec2-user /home/ec2-user/logs
 ExecStartPre=/usr/bin/mkdir -p /home/ec2-user/staging
 ExecStartPre=/usr/bin/chmod 755 /home/ec2-user/staging
 ExecStartPre=/usr/bin/chown ec2-user /home/ec2-user/staging
-ExecStartPre=/usr/bin/chown ec2-user /home/ec2-user/logs
+ExecStartPre=/usr/bin/mkdir -p /home/ec2-user/tmp
+ExecStartPre=/usr/bin/chmod 755 /home/ec2-user/tmp
+ExecStartPre=/usr/bin/chown ec2-user /home/ec2-user/tmp
 # Allow 'syslog' access to write to 'dpbackup.log' whilst maintaining read
 # access (as the group) so the file can be collected and uploaded to S3 by
 # 'dp-backup'.
