@@ -46,6 +46,7 @@ export PKR_VAR_zone=${ZONE}
 export PKR_VAR_project_id=${IMAGE_FACTORY_PROJECT_ID}
 export PKR_VAR_network_id=$(echo ${IMAGE_FACTORY_PROJECT_ID}|sed 's/rcif-/image-factory-vpc-/g')
 export PKR_VAR_access_token=$(cat ${WORKSPACE}/cloud-build-tools/utilities/.gcp/${ENV})
+export PKR_VAR_agent_sha=${AGENT_SHA}
 EOT
 
     #packer variables specific for couchbase-server
@@ -96,8 +97,9 @@ ARCH="amd64"
 DP_REVISION=1
 PLATFORM="linux"
 ZONE="us-central1-a"
+AGENT_SHA="latest"
 
-while getopts b:d:e:i:o:p:r:v: opt
+while getopts b:d:e:g:i:o:p:r:v: opt
 do
     case ${opt} in
         o) IMAGE_NAME_OVERWRITE=${OPTARG}
@@ -113,6 +115,8 @@ do
         d) DP_REVISION=${OPTARG}
            ;;
         e) ENV=${OPTARG}
+           ;;
+        g) AGENT_SHA=${OPTARG}
            ;;
         i) IMAGE_FACTORY_PROJECT_ID=${OPTARG}
            ;;

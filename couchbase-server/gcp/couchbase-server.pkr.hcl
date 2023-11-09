@@ -48,6 +48,10 @@ variable "access_token" {
   type = string
 }
 
+variable "agent_sha" {
+  type = string
+}
+
 locals {
   dp_backup_service = "dp-backup"
   setupDPBackupRsyslog = "sudo sh -c 'mv /tmp/dp-backup.conf /etc/rsyslog.d/dp-backup.conf && sudo systemctl restart rsyslog'"
@@ -91,6 +95,7 @@ source "googlecompute" "cc" {
     arch                 = "${var.product_arch}"
     version              = "${var.image_version}"
     build                = "${var.product_bld_num}"
+    agent                = "${var.agent_sha}"
   }
 }
 
