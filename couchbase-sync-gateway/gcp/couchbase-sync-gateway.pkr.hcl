@@ -157,7 +157,8 @@ build {
       "sudo systemctl start sgw-firewall.service",
       "sudo systemctl enable sgw-firewall.service",
       // Add sync_gateway user to ec2-user group, so it can read files created by ec2-user
-      "sudo usermod -a -G ec2-user sync_gateway",
+      // Add sync_gateway user to systemd-journal group
+      "sudo usermod -a -G ec2-user sync_gateway && sudo usermod -a -G systemd-journal sync_gateway",
       // Install fluent-bit
       "curl https://packages.fluentbit.io/fluentbit.key | gpg --dearmor | sudo tee /usr/share/keyrings/fluentbit-keyring.gpg",
       "echo \"deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/ubuntu/focal focal main\" | sudo tee -a /etc/apt/sources.list",

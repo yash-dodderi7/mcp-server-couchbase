@@ -70,7 +70,7 @@ locals {
   dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
 
   // configure ns_server profile
-  nsServerProfileConfig = "sudo useradd couchbase && sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
+  nsServerProfileConfig = "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
 
   // server build compiles single linux deb file for Neo and newer.  Ubuntu and Debian packages are merely copies of linux deb file.
   platform = "linux"
@@ -216,12 +216,13 @@ build {
       //     ntp: ntpdate, ntpq
       "sudo apt update",
       "sudo apt install -y nmap ncat ntp lshw lsof sysstat net-tools numactl tzdata wget rsync",
+      // Create couchbase server
+      "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Setup ns_server profile
       "${local.nsServerProfileConfig}",
       "sudo apt install -y /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
       "sudo rm /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
       // Setup the directory for the TLS certificate and key
-      "sudo usermod -a -G couchbase ec2-user",
       "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",
       "sudo touch /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
       "sudo touch /opt/couchbase/var/lib/couchbase/inbox/chain.pem",

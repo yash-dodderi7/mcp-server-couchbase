@@ -45,7 +45,7 @@ locals {
   dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
 
   // configure ns_server profile
-  nsServerProfileConfig = "sudo useradd couchbase && sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
+  nsServerProfileConfig = "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
 
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
   source_ami_name = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
@@ -179,12 +179,13 @@ build {
       //     numactl: numactl
       //     ntp: ntpdate, ntpq
       "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata",
+      // Create couchbase user
+      "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Setup ns_server profile
       "${local.nsServerProfileConfig}",
       "sudo yum install -y /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-linux.${var.product_arch}.rpm",
       "rm /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-linux.${var.product_arch}.rpm",
       // Setup the directory for the TLS certificate and key
-      "sudo usermod -a -G couchbase ec2-user",
       "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",
       "sudo touch /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
       "sudo touch /opt/couchbase/var/lib/couchbase/inbox/chain.pem",

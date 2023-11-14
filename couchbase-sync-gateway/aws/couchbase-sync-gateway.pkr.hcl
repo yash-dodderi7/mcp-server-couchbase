@@ -143,7 +143,8 @@ build {
       "sudo systemctl start sgw-firewall.service",
       "sudo systemctl enable sgw-firewall.service",
       // Add sync_gateway user to ec2-user group, so it can read files created by ec2-user
-      "sudo usermod -a -G ec2-user sync_gateway",
+      // Add sync_gateway user to systemd-journal group
+      "sudo usermod -a -G ec2-user sync_gateway && sudo usermod -a -G systemd-journal sync_gateway",
       // Install fluent-bit
       "cat << EOF > /tmp/fluent-bit.repo",
       "[fluent-bit]",
