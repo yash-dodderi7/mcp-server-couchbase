@@ -41,22 +41,22 @@ EOT
     case "${OSTYPE}" in
       linux)
         for ARCH in amd64 arm64; do
-          GOOS=${OSTYPE} GOARCH=${ARCH} go build -o ${PRODUCT}
-          zip ${PRODUCT}-${VERSION}-${BLD_NUM}_${OSTYPE}_${ARCH}.zip ${PRODUCT}
+          GOOS=${OSTYPE} GOARCH=${ARCH} go build -o ${PRODUCT}_v${VERSION}
+          zip ${PRODUCT}_${VERSION}_${BLD_NUM}_${OSTYPE}_${ARCH}.zip ${PRODUCT}_v${VERSION} README.md LICENSE
         done
-        GOARM=6 GOARCH=arm GOOS=${OSTYPE} go build -o ${PRODUCT}
-        zip ${PRODUCT}-${VERSION}-${BLD_NUM}_${OSTYPE}_${ARCH}.zip ${PRODUCT}
+        GOARM=6 GOARCH=arm GOOS=${OSTYPE} go build -o ${PRODUCT}_v${VERSION}
+        zip ${PRODUCT}_${VERSION}_${BLD_NUM}_${OSTYPE}_${ARCH}.zip ${PRODUCT}_v${VERSION} README.md LICENSE
         ;;
       darwin)
         for ARCH in amd64 arm64; do
-          GOOS=${OSTYPE} GOARCH=${ARCH} go build -o ${PRODUCT}
-          zip ${PRODUCT}-${VERSION}-${BLD_NUM}_${OSTYPE}_${ARCH}.zip ${PRODUCT}
+          GOOS=${OSTYPE} GOARCH=${ARCH} go build -o ${PRODUCT}_v${VERSION}
+          zip ${PRODUCT}_${VERSION}_${BLD_NUM}_${OSTYPE}_${ARCH}.zip ${PRODUCT}_v${VERSION} README.md LICENSE
         done
         ;;
       windows)
         ARCH=amd64
-        GOOS=${OSTYPE} GOARCH=${ARCH} go build -o ${PRODUCT}.exe
-        zip ${PRODUCT}-${VERSION}-${BLD_NUM}_${OSTYPE}_${ARCH}.zip ${PRODUCT}.exe
+        GOOS=${OSTYPE} GOARCH=${ARCH} go build -o ${PRODUCT}_v${VERSION}
+        zip ${PRODUCT}_${VERSION}_${BLD_NUM}_${OSTYPE}_${ARCH}.zip ${PRODUCT}_v${VERSION} README.md LICENSE
         ;;
       *)
         echo "unknown: $OSTYPE"
