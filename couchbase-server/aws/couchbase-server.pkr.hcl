@@ -1,35 +1,30 @@
 variable "product_name" {
   type = string
 }
-
 variable "product_version" {
   type = string
 }
-
 variable "product_bld_num" {
   type = string
 }
-
 variable "ami_name" {
   type = string
 }
-
 variable "region" {
   type = string
 }
-
+variable "ami_regions" {
+  type = list(string)
+}
 variable "dp_service" {
   type = string
 }
-
 variable "ns_server_profile" {
   type = string
 }
-
 variable "product_arch" {
   type = string
 }
-
 variable "agent_sha" {
   type = string
 }
@@ -59,6 +54,7 @@ locals {
 
 source "amazon-ebs" "cc" {
   ami_name      = "${var.ami_name}"
+  ami_regions   = "${var.ami_regions}"
   instance_type = "${local.instance_type}"
   region        = "${var.region}"
   ssh_timeout   = "15m"

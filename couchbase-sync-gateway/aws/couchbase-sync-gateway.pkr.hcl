@@ -10,6 +10,9 @@ variable "product_bld_num" {
 variable "ami_name" {
   type = string
 }
+variable "ami_regions" {
+  type = list(string)
+}
 variable "region" {
   type = string
 }
@@ -29,6 +32,7 @@ locals {
 
 source "amazon-ebs" "cc" {
   ami_name      = "${var.ami_name}"
+  ami_regions   = "${var.ami_regions}"
   instance_type = "${local.instance_type}"
   region        = "${var.region}"
   source_ami_filter {

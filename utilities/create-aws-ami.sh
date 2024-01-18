@@ -38,6 +38,7 @@ function create_ami
 rm .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
 cat <<EOT >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
 export PKR_VAR_region=${AWS_REGION}
+export PKR_VAR_ami_regions='${AMI_REGIONS}'
 export PKR_VAR_product_name=${AMI_PRODUCT}
 export PKR_VAR_product_version=${VERSION}
 export PKR_VAR_product_bld_num=${BLD_NUM}
@@ -91,6 +92,13 @@ EOT
 ARCH="aarch64"
 AGENT_SHA="latest"
 AWS_REGION=${AWS_REGION:-"us-east-1"}
+read -d '' AMI_REGIONS << EOL
+["af-south-1", "ap-east-1", "ap-northeast-1", "ap-northeast-2", \
+"ap-south-1", "ap-south-2", "ap-southeast-1", "ap-southeast-2", "ap-southeast-3", \
+"ap-southeast-4", "ca-central-1", "eu-central-1", "eu-central-2", "eu-north-1", \
+"eu-south-1", "eu-south-2", "eu-west-1", "eu-west-2", "eu-west-3", "il-central-1", \
+"me-central-1", "me-south-1", "sa-east-1", "us-east-1", "us-east-2", "us-west-2"]
+EOL
 AWS_SHARED_CREDENTIALS_FILE=${AWS_SHARED_CREDENTIALS_FILE:-"${WORKSPACE}/cloud-build-tools/utilities/.aws/credentials"}
 AWS_CONFIG_FILE=${AWS_CONFIG_FILE:-"${WORKSPACE}/cloud-build-tools/utilities/.aws/config"}
 
