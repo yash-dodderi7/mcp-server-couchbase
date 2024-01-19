@@ -100,7 +100,7 @@ def get_aws_images(aws, version):
         images[type] = {}
         images[type]['available'] = []
         images[type]['latest_sha'] = ''
-        image_pattern = f'couchbase-cloud-{type}-{version}*'
+        image_pattern = f'couchbase-cloud-{type}-{version}*-v*'
         available_images = aws.search_ami_by_pattern(image_pattern)
         available_images.sort(key=lambda x: (x['Name']), reverse=True)
         for item in available_images:
@@ -119,7 +119,7 @@ def get_gcp_images(gcp, version):
         images[type] = {}
         images[type]['available'] = []
         images[type]['latest_sha'] = ''
-        image_pattern = f'couchbase-cloud-{type}-{gcp_version}*'
+        image_pattern = f'couchbase-cloud-{type}-{gcp_version}-*'
         available_images = list(gcp.search_image_by_pattern(image_pattern))
         available_images.sort(key=lambda x: (x.name), reverse=True)
         for item in available_images:
@@ -136,7 +136,7 @@ def get_azure_images(azure, version):
         images[type] = {}
         images[type]['available'] = []
         images[type]['latest_sha'] = ''
-        image_pattern = f'^couchbase-cloud-{type}-{version}'
+        image_pattern = f'^couchbase-cloud-{type}-{version}-v(?!0.0.0)'
         all_images = azure.get_images('image-factory')
         available_images = list(
             filter(

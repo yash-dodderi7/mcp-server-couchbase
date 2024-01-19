@@ -192,6 +192,6 @@ class GCPUtils:
 
         images_list_request = compute_v1.ListImagesRequest(
             project=self.image_factory_project_id,
-            filter=f"name = {image_name_pattern}"
+            filter=f"name:{image_name_pattern}"
         )
         return client.list(request=images_list_request)
