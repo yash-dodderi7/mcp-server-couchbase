@@ -34,12 +34,15 @@ from pathlib import Path
 import re
 import sys
 
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
+# Make boto3 less verbose
+logging.getLogger("boto3").setLevel(logging.WARN)
+logging.getLogger("botocore").setLevel(logging.WARN)
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler(stream=sys.stdout)
+logger.addHandler(console_handler)
+
 
 class AWSAssumeRole:
 
@@ -64,7 +67,16 @@ class AWSAssumeRole:
         else:
             sys.exit(f'{env} is not defined in environments.json')
 
-        if mfa_token is not None:
+        # only robot accounts w/ EXTERNALID doesn't require mfa token.
+        # build-team only has one robot account, cb-robot.
+        if 'cb-robot' in self.role_arn:
+            response = client.assume_role(
+                RoleArn=self.role_arn,
+                RoleSessionName=self.role_session_name,
+                DurationSeconds=3600,
+                ExternalId=environments[env]['aws']['EXTERNALID']
+            )
+        else:
             response = client.assume_role(
                 RoleArn=self.role_arn,
                 RoleSessionName=self.role_session_name,
@@ -72,20 +84,16 @@ class AWSAssumeRole:
                 SerialNumber=mfa_serial,
                 TokenCode=mfa_token
             )
-        else:
-            response = client.assume_role(
-                RoleArn=self.role_arn,
-                RoleSessionName=self.role_session_name,
-                DurationSeconds=3600,
-                ExternalId=environments[env]['aws']['EXTERNALID']
-            )
-
         self.credentials = response['Credentials']
 
     def write_config(self):
         home = str(Path.home())
-        aws_config_file = os.environ.get('AWS_CONFIG_FILE', os.path.join(home, '.aws/config'))
-        aws_shared_credentials_file = os.environ.get('AWS_SHARED_CREDENTIALS_FILE', os.path.join(home, '.aws/credentials'))
+        aws_config_file = os.environ.get(
+            'AWS_CONFIG_FILE', os.path.join(
+                home, '.aws/config'))
+        aws_shared_credentials_file = os.environ.get(
+            'AWS_SHARED_CREDENTIALS_FILE', os.path.join(
+                home, '.aws/credentials'))
 
         with open(aws_config_file, 'r+') as file:
             for line in file:
@@ -94,24 +102,30 @@ class AWSAssumeRole:
                     break
             else:  # not found at the eof
                 file.write(
-                    f"[profile {self.role_session_name}]\n")
+                    f'[profile {self.role_session_name}]\n')
                 file.write('region=us-east-1\n')
                 file.write('output=json\n')
 
         with open(aws_shared_credentials_file, 'r+') as file:
             if not any(self.role_session_name in line for line in file):
-                file.write(f"[{self.role_session_name}]\n")
+                file.write(f'[{self.role_session_name}]\n')
                 file.write('aws_access_key_id     = %s\n' %
                            (self.credentials['AccessKeyId']))
                 file.write('aws_secret_access_key = %s\n' %
                            (self.credentials['SecretAccessKey']))
                 file.write('aws_session_token     = %s\n' %
                            (self.credentials['SessionToken']))
+                logger.info(
+                    f'{self.role_session_name} has been added '
+                    f'to {aws_shared_credentials_file}'
+                )
             else:
-                    logging.info(
-                        f'''{aws_shared_credentials_file} already contains {self.role_session_name}.
-Remove {self.role_session_name} first if you wish to recreate it in
-{aws_shared_credentials_file}''')
+                logger.info(
+                    f'{aws_shared_credentials_file} already '
+                    f'contains {self.role_session_name}.  Remove '
+                    f'{self.role_session_name} first if you wish '
+                    f'to recreate it in {aws_shared_credentials_file} '
+                )
 
 
 if __name__ == "__main__":
@@ -121,7 +135,7 @@ if __name__ == "__main__":
         '-p',
         '--cbc_profile',
         type=str,
-        default="cbc-main",
+        default='cbc-main',
         help='CBC profile in .aws/config; i.e. cbc-main')
     parser.add_argument(
         '-t',

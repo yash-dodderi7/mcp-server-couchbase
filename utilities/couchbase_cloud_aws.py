@@ -6,398 +6,237 @@
 
 import boto3
 import botocore
-import os
-import re
-import json
 import argparse
-import sys
-from datetime import datetime, timedelta
-import time
-from botocore.config import Config
 import logging
-from couchbase_cloud_internal_api import CouchbaseCloudInternalApi
-from aws_assume_role import AWSAssumeRole
+import os
+import sys
+from aws_utils import AWSUtils
+import common_utils
 
-logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
-                    stream=sys.stderr, level=logging.INFO)
+# Make boto3 less verbose
+logging.getLogger('boto3').setLevel(logging.WARN)
+logging.getLogger('botocore').setLevel(logging.WARN)
+
+logger = logging.getLogger()
+if not logger.handlers:
+    logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler(stream=sys.stdout)
+    logger.addHandler(console_handler)
 
 
-class CouchbaseCloudAWS:
+def build_ami(aws_profile, aws_region, packer_script, env_file):
+    couchbaseaws = AWSUtils(aws_profile, aws_region)
+    packer_env = common_utils.load_packer_env(env_file, 'ami_name')
 
-    def __init__(self, profile):
-        self.environments = json.loads(open('environments.json').read())
-        for env in self.environments:
-            role = AWSAssumeRole(profile, env)
-            role.write_config()
+    ami_name = packer_env['ami_name']
+    # Check if AMI already exist
+    logger.info(
+        f'Checking if {ami_name} exist.')
+    find_ami = couchbaseaws.search_ami_by_pattern(ami_name)
+    if len(find_ami) != 0:
+        logger.info(
+            f'{ami_name} already exist.  It will not be created again.')
+    else:
+        logger.info(
+            f'Building {ami_name}.')
+        common_utils.run_cmd(["packer", "build", packer_script])
+        # Jenkins job will use this to decide if it is necessary to call QE
+        # validation pipeline.
+        common_utils.run_cmd(["touch", "IMAGES_CREATED"])
 
-    def get_ami_by_id(self, client, ami_id):
-        response = client.describe_images(ImageIds=[ami_id])
-        return response['Images']
 
-    def search_ami_by_pattern(self, client, name_pattern):
-        response = client.describe_images(
-            Filters=[
-                {'Name': 'name', 'Values': [name_pattern]},
-                {'Name': 'tag:creator', 'Values': ['build-team']}
-            ],
-            Owners=['self']
+def copy_ami(ami_name, source, source_profile,
+             source_region, dest_profile, dest_region):
+    if not source:
+        source = AWSUtils(source_profile, source_region)
+    destination = AWSUtils(dest_profile, dest_region)
+    # Check if AMI already exist on destination
+    dest_amis = destination.search_ami_by_pattern(ami_name)
+    if len(dest_amis) != 0:
+        logger.info(
+            f'{ami_name} is already on {destination.aws_account_id} '
+            f'{destination.client.meta.region_name}.  It will not be copied.'
         )
-        return response['Images']
+        return
 
-    def get_instances_by_ami_id(self, client, ami_id):
-        response = client.describe_instances(
-            Filters=[{'Name': 'image-id', 'Values': [ami_id]}]
-        )
-        return response['Reservations']
-
-    def wait_for_ami_to_be_available(self, client, ami_id):
-        # It takes some time for newly created AMI to become available.
-        attempts = 0
-        max_attempts = 300
-        ami = self.get_ami_by_id(client, ami_id)
-        while ami[0]['State'] != 'available':
-            attempts += 1
-            time.sleep(10)
-            if attempts <= max_attempts:
-                ami = self.get_ami_by_id(client, ami_id)
-                if ami[0]['State'] == 'failed':
-                    sys.exit('AMI promotion(copy) failed.')
-            else:
-                sys.exit('AMI promotion(copy) might be stuck.')
-
-    def tag_ami(self, profile, region, ami_name, tag_name, tag_value=''):
-        session = boto3.Session(profile_name=profile)
-        client = session.client('ec2', region_name=region)
-
-        # Get AMI detail
-        amis = self.search_ami_by_pattern(client, ami_name)
-        if len(amis) == 1:
-            ami = amis[0]
-        else:
-            sys.exit(f"{len(amis)} image(s) were found for {ami_name}.")
-
-        client.create_tags(
-            Resources=[ami['ImageId']],
-            Tags=[{'Key': tag_name, 'Value': tag_value}, ]
+    # Get AMI detail
+    source_amis = source.search_ami_by_pattern(ami_name)
+    if len(source_amis) == 1:
+        source_ami = source_amis[0]
+    else:
+        sys.exit(
+            f'Unable to identify the source image.  '
+            f'{len(source_amis)} AMIs found on {source_profile}'
         )
 
-    def get_secret(self, profile, secret_name):
-        session = boto3.Session(profile_name=profile)
-        client = session.client("secretsmanager")
-        response = client.get_secret_value(SecretId=secret_name)
-        print(response['SecretString'])
+    # Copy AMI to destiation account
+    logger.info(
+        f'Copying {ami_name} to {destination.client.meta.region_name} '
+        f'on {destination.aws_account_id}.'
+    )
+    description = f"Copy from {source_ami['ImageId']} on {source.aws_account_id}"
+    dest_ami = destination.client.copy_image(
+        Name=source_ami['Name'],
+        Description=description,
+        SourceImageId=source_ami['ImageId'],
+        SourceRegion=source.session.region_name
+    )
 
-    # Remove older AMIs by product.
-    # By default, AMIs older than 14 days are removed.
-    # Mininum of 8 AMIs are kept.
-    def ami_cleanup(self, profile, region, product_prefix,
-                    version, age, default_amis):
-        session = boto3.Session(profile_name=profile)
-        client = session.client('ec2', region_name=region)
+    # Make sure AMI is ready before moving on to the next step.
+    destination.wait_for_ami(dest_ami['ImageId'])
 
-        now = datetime.now()
-        timelimit = now - timedelta(days=age)
+    # boto3 copy_image with CopyImageTags doesn't copy image tags across accounts
+    # Hence, create_tags is used to recreate the tags.
+    destination.client.create_tags(
+        Resources=[dest_ami['ImageId']],
+        Tags=source_ami['Tags']
+    )
 
-        ami_name_pattern = f'{product_prefix}*-{version}*'
-        keep_count = 8
 
-        # Search AMIs.
-        images = self.search_ami_by_pattern(client, ami_name_pattern)
-        images.sort(key=lambda ami: datetime.strptime(
-            ami['CreationDate'], '%Y-%m-%dT%H:%M:%S.%f%z'), reverse=True)
-
-        # Take out default amis from the image list.
-        # We don't want to remove these.
-        images = [i for i in images if i['Name'] not in default_amis]
-
-        # Keep a minimal set of AMIs
-        if len(images) > keep_count:
-            del images[:keep_count]
-        else:
-            return
-
-        images = [image for image in images if datetime.strptime(
-            image['CreationDate'], '%Y-%m-%dT%H:%M:%S.%f%z').replace(tzinfo=None) <= timelimit]
-
-        # Skip AMIs that are still in use.
-        bld_keep_list = []
-        for image in images:
-            bld_ver = [tag for tag in image['Tags']
-                       if tag['Key'] == 'version'][0]['Value']
-            if bld_ver not in bld_keep_list:
-                reservations = self.get_instances_by_ami_id(
-                    client, image['ImageId'])
-                for reservation in reservations:
-                    if len(reservation['Instances']) > 0:
-                        logging.info(f"{bld_ver} is still being used.")
-                        bld_keep_list.append(bld_ver)
-                        break
-
-        for image in images:
-            bld_ver = [tag for tag in image['Tags']
-                       if tag['Key'] == 'version'][0]['Value']
-            if bld_ver not in bld_keep_list:
-                logging.info(
-                    f"Removing {image['Name']} {image['ImageId']} {image['CreationDate']}.")
-                client.deregister_image(ImageId=image['ImageId'])
-                for device in image['BlockDeviceMappings']:
-                    if 'Ebs' in device:
-                        snapshot_id = device['Ebs']['SnapshotId']
-                        logging.info(
-                            f"Removing {snapshot_id} of {image['ImageId']}.")
-                        client.delete_snapshot(SnapshotId=snapshot_id)
-
-    def copy_ami(self, source_profile, source_region,
-                 dest_profile, dest_region, ami_name):
-        source_session = boto3.Session(profile_name=source_profile)
-        source_client = source_session.client('ec2', region_name=source_region)
-        dest_session = boto3.Session(profile_name=dest_profile)
-        dest_client = dest_session.client(
-            'ec2', region_name=dest_region)
-
-        dest_sts = dest_session.client('sts')
-        dest_account_id = dest_sts.get_caller_identity()['Account']
-
-        # Check if AMI already exist on destination
-        dest_amis = self.search_ami_by_pattern(dest_client, ami_name)
-        if len(dest_amis) != 0:
-            logging.info(
-                f"{ami_name} is already on {dest_profile} {dest_region}.  It will not be copied.")
-            exit(0)
-
-        # Get AMI detail
-        source_amis = self.search_ami_by_pattern(source_client, ami_name)
-        if len(source_amis) == 1:
-            source_image = source_amis[0]
-        else:
-            sys.exit(f"{len(source_amis)} is found on {source_profile}")
-
-        # Share the image with the destination account
-        source_client.modify_image_attribute(
-            ImageId=source_image['ImageId'],
-            Attribute='launchPermission',
-            OperationType='add',
-            LaunchPermission={
-                'Add': [{'UserId': dest_account_id}]
-            }
+def delete_ami(ami_name, aws_profile, aws_region):
+    couchbaseaws = AWSUtils(aws_profile, aws_region)
+    amis = couchbaseaws.search_ami_by_pattern(ami_name)
+    if len(amis) > 1:
+        logger.info(
+            f'More than 1 AMI is found on {aws_profile} {aws_name}.  '
         )
-        # Snapshots associated with the AMI need to be shared as well
-        devices = source_image['BlockDeviceMappings']
-        for device in devices:
-            if 'Ebs' in device:
-                snapshot_id = device['Ebs']['SnapshotId']
-                source_client.modify_snapshot_attribute(
-                    SnapshotId=snapshot_id,
-                    Attribute='createVolumePermission',
-                    CreateVolumePermission={
-                        'Add': [{'UserId': dest_account_id}]
-                    },
-                    OperationType='add',
-                )
-        # Copy AMI to destiation account
-        logging.info(
-            f"Copying {source_image['Name']} from {source_profile} {source_region} to {dest_profile} {dest_region}.")
-        description = f"Copy from {source_image['ImageId']} from {source_profile} {source_region}"
-        dest_image = dest_client.copy_image(
-            Name=source_image['Name'],
-            Description=description,
-            SourceImageId=source_image['ImageId'],
-            SourceRegion=source_region
+        return
+    if len(amis) == 0:
+        logger.info(
+            f'No AMI named, {ami_name}, is found on {aws_profile} {aws_region}.  '
+            f'Nothing to delete.'
         )
+        return
+    ami = amis[0]
+    logger.info(f"Removing {ami_name} {ami['ImageId']}.")
+    couchbaseaws.client.deregister_image(ImageId=ami['ImageId'])
+    for device in ami['BlockDeviceMappings']:
+        if 'Ebs' in device:
+            snapshot_id = device['Ebs']['SnapshotId']
+            logger.info(f"Removing {snapshot_id} of {ami['ImageId']}.")
+            couchbaseaws.client.delete_snapshot(SnapshotId=snapshot_id)
 
-        # Make sure AMI is ready before moving on to the next step.
-        self.wait_for_ami_to_be_available(dest_client, dest_image['ImageId'])
-
-        # boto3 copy_image with CopyImageTags doesn't copy image tags across accounts
-        # Hence, create_tags is used to recreate the tags.
-        dest_client.create_tags(
-            Resources=[dest_image['ImageId']],
-            Tags=source_image['Tags']
-        )
-
-        # Unshare the image in source account
-        source_client.modify_image_attribute(
-            ImageId=source_image['ImageId'],
-            Attribute='launchPermission',
-            OperationType='remove',
-            LaunchPermission={
-                'Remove': [{'UserId': dest_account_id}]
-            }
-        )
-
-        # Unshare snapshots associated with the AMI
-        devices = source_image['BlockDeviceMappings']
-        for device in devices:
-            if 'Ebs' in device:
-                snapshot_id = device['Ebs']['SnapshotId']
-                source_client.modify_snapshot_attribute(
-                    SnapshotId=snapshot_id,
-                    Attribute='createVolumePermission',
-                    CreateVolumePermission={
-                        'Remove': [{'UserId': dest_account_id}]
-                    },
-                    OperationType='remove',
-                )
 
 if __name__ == "__main__":
-    couchbasecloudaws = CouchbaseCloudAWS('cbc-main')
+    # Current supported regions
+    regions = ['af-south-1', 'ap-east-1', 'ap-northeast-1',
+               'ap-northeast-2', 'ap-south-1', 'ap-south-2', 'ap-southeast-1',
+               'ap-southeast-2', 'ap-southeast-3', 'ap-southeast-4', 'ca-central-1',
+               'eu-central-1', 'eu-central-2', 'eu-north-1', 'eu-south-1',
+               'eu-south-2', 'eu-west-1', 'eu-west-2', 'eu-west-3', 'il-central-1',
+               'me-central-1', 'me-south-1', 'sa-east-1', 'us-east-1', 'us-east-2',
+               'us-west-2']
 
-    parser = argparse.ArgumentParser('AWS Cloud Utilities', allow_abbrev=False)
+    parser = argparse.ArgumentParser('Couchbase AWS Cloud', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
 
-    subparser_get_secret = subparsers.add_parser(
-        'get_secret', help='Retreat secret value from AWS secret manager')
-    subparser_get_secret.add_argument(
-        '--secret_name',
+    subparser_build_ami = subparsers.add_parser(
+        'build_ami', help='Build an AMI')
+    subparser_build_ami.add_argument(
+        '--packer_script',
         type=str,
         required=True,
-        help='Secret name in AWS secret manager')
-    subparser_get_secret.add_argument(
-        '--profile',
+        help='Path of the packer script')
+    subparser_build_ami.add_argument(
+        '--packer_var_files',
         type=str,
-        required=True,
-        help='AWS profile for the account where AMI belongs to.')
-
-    subparser_tag_ami = subparsers.add_parser(
-        'tag_ami', help='Add tag to an AMI.')
-    subparser_tag_ami.add_argument(
-        '--ami_name', type=str, required=True, help='AMI name.')
-    subparser_tag_ami.add_argument(
-        '--tag_name', type=str, required=True, help='Tag name to be added.')
-    subparser_tag_ami.add_argument(
-        '--tag_value', type=str, help='Tag value to be added.')
-    subparser_tag_ami.add_argument(
-        '--profile',
-        type=str,
-        required=True,
-        help='AWS profile for the account where AMI belongs to.')
-    subparser_tag_ami.add_argument(
-        '--region',
-        type=str,
-        default='us-east-1',
-        nargs='?',
-        help='AWS region where AMI is located.')
+        default='.env',
+        help='Comma separated files containing variables needed by the packer script')
+    subparser_build_ami.add_argument(
+        '--skip_copy',
+        action='store_true',
+        help='Skip copy AMIs to other regions')
 
     subparser_copy_ami = subparsers.add_parser(
-        'copy_ami', help='Promote(Copy) an AMI to another aws account.')
+        'copy_ami', help='Promote(Copy) an AMI to another aws account')
     subparser_copy_ami.add_argument(
-        '--ami_name', type=str, required=True, help='AMI name.')
+        '--ami_name', type=str, required=True, help='AMI name')
     subparser_copy_ami.add_argument(
         '--source_profile',
         type=str,
-        required=True,
-        help='AWS account profile where AMI is copied from.')
+        default=os.getenv('AWS_PROFILE'),
+        help='AWS account profile where AMI is copied from')
     subparser_copy_ami.add_argument(
         '--source_region',
         type=str,
         default='us-east-1',
-        nargs='?',
-        help='AWS account region where AMI is copied from.')
+        help='AWS account region where AMI is copied from')
     subparser_copy_ami.add_argument(
         '--dest_profile',
         type=str,
         required=True,
-        help='AWS account profile where AMI is copied to.')
+        help='AWS account profile where AMI is copied to')
     subparser_copy_ami.add_argument(
-        '--dest_region',
+        '--dest_regions',
         type=str,
-        default='us-east-1',
-        nargs='?',
-        help='AWS account region where AMI is copied to.')
+        help='Comma separated regions where AMI is copied to')
 
-    subparser_ami_cleanup = subparsers.add_parser(
-        'ami_cleanup', help='Delete older AMIs by age, keep minimum of last two.')
-    subparser_ami_cleanup.add_argument(
-        '--profile', type=str, required=True, help='AWS account profile.')
-    subparser_ami_cleanup.add_argument(
-        '--region',
-        type=str,
-        default='us-east-1',
-        nargs='?',
-        help='AWS account region.')
-    subparser_ami_cleanup.add_argument(
-        '--product_prefix',
-        type=str,
-        required=True,
-        help='i.e. couchbase-serverless, couchbase-cloud, direct-nebula, couchbase-data-api')
-    subparser_ami_cleanup.add_argument(
-        '--version', type=str, required=True, help='i.e. 7.5.0, 0.1')
-    subparser_ami_cleanup.add_argument(
-        '--age', type=int, default=14, nargs='?', help='Days to keep.')
-    subparser_ami_cleanup.add_argument(
-        '--dev_username',
-        type=str,
-        required=True,
-        help='Control plane dev account, which is used to retrieve default images info.')
-    subparser_ami_cleanup.add_argument(
-        '--dev_password',
-        type=str,
-        required=True,
-        help='Control plane dev account password, which is used to retrieve default images info.')
-    subparser_ami_cleanup.add_argument(
-        '--stage_token',
-        type=str,
-        required=True,
-        help='Control Plane stage token, which is used to retrieve default images info.')
+    subparser_delete_ami = subparsers.add_parser(
+        'delete_ami', help='Deregister an AMI from all regions of an aws account')
+    subparser_delete_ami.add_argument(
+        '--ami_name', type=str, required=True, help='AMI name')
+
+    subparser_get_secret = subparsers.add_parser(
+        'get_secret', help='Pull secret from AWS Secret Manager')
+    subparser_get_secret.add_argument(
+        '--secret_name', type=str, required=True, help='secret name')
 
     args = parser.parse_args()
 
-    if args.cmd == 'tag_ami':
-        couchbasecloudaws.tag_ami(args.profile, args.region,
-                                  args.ami_name, args.tag_name, args.tag_value)
+    if args.cmd == 'build_ami':
+        var_files = args.packer_var_files.split(',')
+        packer_script = args.packer_script
+        aws_region = os.getenv('AWS_REGION', 'us-east-1')
+        aws_profile = os.getenv('AWS_PROFILE')
+        common_utils.concurrent_executor(build_ami, 4, aws_profile,
+                                         aws_region, packer_script, items=var_files)
+        if not args.skip_copy:
+            ami_list = []
+            for var_file in var_files:
+                vars = common_utils.load_packer_env(var_file, 'ami_name')
+                ami_name = vars['ami_name']
+                ami_list.append(ami_name)
+            common_utils.concurrent_executor_two_lists(
+                copy_ami,
+                25,
+                '',
+                aws_profile,
+                aws_region,
+                aws_profile,
+                items1=ami_list,
+                items2=regions)
+
     if args.cmd == 'copy_ami':
-        couchbasecloudaws.copy_ami(
-            args.source_profile,
-            args.source_region,
-            args.dest_profile,
-            args.dest_region,
-            args.ami_name)
-    if args.cmd == 'ami_cleanup':
-        # cp_product_key is product key defined in Control Plane.
-        # Control Plane's product keys are different from rpms: couchbase,
-        # nebula, dataApi.
-        if args.product_prefix == 'couchbase-serverless' or args.product_prefix == 'couchbase-cloud':
-            cp_product_key = 'couchbase'
-        elif args.product_prefix == 'direct-nebula':
-            cp_product_key = 'nebula'
-        elif args.product_prefix == 'couchbase-data-api':
-            cp_product_key = 'dataApi'
+        if not args.dest_regions:
+            dest_regions = regions
         else:
-            sys.exit(f'Product, {args.product_prefix}, is not supported')
+            args.dest_regions.split(',')
+        couchbaseaws = AWSUtils(args.source_profile, args.source_region)
+        target_session = boto3.Session(profile_name=args.dest_profile)
+        target_sts = target_session.client('sts')
+        target_aws_account_id = target_sts.get_caller_identity()['Account']
 
-        default_amis = []
+        # Share the image with the destination account so that it can be
+        # copied.
+        couchbaseaws.share_image(args.ami_name, 'Add', target_aws_account_id)
+        common_utils.concurrent_executor(copy_ami, 25, args.ami_name, '', args.source_profile,
+                                         args.source_region, args.dest_profile, items=dest_regions)
 
-        # Dev and stage use different motheds to access internal apis.
-        dev = CouchbaseCloudInternalApi(
-            args.dev_username, args.dev_password, 'dev', '')
-        dev_default_images = dev.default_images_info()
-        default_amis.append(dev_default_images[cp_product_key]['image'])
-        stage = CouchbaseCloudInternalApi('', '', 'stage', args.stage_token)
-        stage_default_images = stage.default_images_info()
-        default_amis.append(stage_default_images[cp_product_key]['image'])
-        default_amis = list(set(default_amis))
+        # For security purpose, make sure the image is no longer shared with
+        # the destination account.
+        couchbaseaws.share_image(
+            args.ami_name,
+            'Remove',
+            target_aws_account_id)
 
-        # Default current doens't contain backup AMI for couchbase server.
-        # i.e. couchbase-server 7.5.0-3342 has two AMIs: couchbase-serverless-server-7.5.0-3342
-        # and couchbase-serverless-backup-7.5.0-3342.But, only couchbase-serverless-server-7.5.0-3342
-        # shows up on the internal api.
-        # An enhancement ticket has been filed.  For now, we will manually
-        # append the backup AMI.
-        if cp_product_key == 'couchbase':
-            version_bld_list = []
-            for ami in default_amis:
-                version_bld_list.append('-'.join(ami.rsplit('-', 2)[-2:]))
-            for vb in version_bld_list:
-                default_amis.append(f'{args.product_prefix}-backup-{vb}')
-
-        logging.info(f'Current default AMIs: {default_amis}.')
-        couchbasecloudaws.ami_cleanup(
-            args.profile,
-            args.region,
-            args.product_prefix,
-            args.version,
-            args.age,
-            default_amis)
+    if args.cmd == 'delete_ami':
+        aws_profile = os.getenv('AWS_PROFILE')
+        ami_name = args.ami_name
+        common_utils.concurrent_executor(delete_ami, 25, ami_name,
+                                         aws_profile, items=regions)
 
     if args.cmd == 'get_secret':
-        couchbasecloudaws.get_secret(args.profile, args.secret_name)
+        aws_profile = os.getenv('AWS_PROFILE')
+        couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
+        response = couchbaseaws.get_secret(args.secret_name)
+        logger.info(f'{response}')

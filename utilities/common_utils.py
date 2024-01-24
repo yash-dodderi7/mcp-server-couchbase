@@ -4,7 +4,7 @@
 Common utility functions
 """
 
-from concurrent import futures
+import concurrent.futures
 from dotenv import load_dotenv
 import json
 import logging
@@ -19,19 +19,19 @@ logger.addHandler(console_handler)
 
 
 def concurrent_executor(func, workers, *args, **kwargs):
-    with futures.ProcessPoolExecutor(max_workers=workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
         futures = [
             executor.submit(
                 func,
                 *args,
                 value) for value in kwargs['items']]
-        for f in futures.as_completed(futures):
+        for f in concurrent.futures.as_completed(futures):
             if f.exception() is not None:
                 sys.exit(f"{f.exception()}")
 
 
 def concurrent_executor_two_lists(func, workers, *args, **kwargs):
-    with futures.ProcessPoolExecutor(max_workers=workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
         for i in kwargs['items1']:
             futures = [
                 executor.submit(
@@ -39,7 +39,7 @@ def concurrent_executor_two_lists(func, workers, *args, **kwargs):
                     i,
                     *args,
                     j) for j in kwargs['items2']]
-        for f in futures.as_completed(futures):
+        for f in concurrent.futures.as_completed(futures):
             if f.exception() is not None:
                 sys.exit(f"{f.exception()}")
 

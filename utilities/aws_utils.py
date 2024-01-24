@@ -59,20 +59,21 @@ class AWSUtils:
             if attempts <= max_attempts:
                 ami = self.get_ami_by_id(ami_id)
                 if ami[0]['State'] == 'failed':
-                    logger.info(f"AMI {ami_id} failed.")
+                    logger.info(f'AMI {ami_id} failed.')
             else:
                 logger.error(
-                    f"AMI {ami_id} is still not available after 50 minutes."
-                    f"It might be stuck.")
+                    f'AMI {ami_id} is still not available after 50 minutes.'
+                    f'  It might be stuck.'
+                )
                 return
-        logger.info(f"AMI {ami_id} is now available.")
+        logger.info(f'AMI {ami_id} is now available.')
 
     def share_image(self, ami_name, operation, account_id):
         amis = self.search_ami_by_pattern(ami_name)
         if len(amis) == 0:
             sys.exit(
-                f"AMI {ami_name} is NOT found on {self.aws_account_id}"
-                f"{self.session.region_name}"
+                f'AMI {ami_name} is NOT found on {self.aws_account_id} '
+                f'{self.session.region_name}'
             )
         else:
             ami = amis[0]
