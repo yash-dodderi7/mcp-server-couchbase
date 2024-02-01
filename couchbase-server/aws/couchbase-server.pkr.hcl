@@ -40,10 +40,12 @@ locals {
   dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
 
   // configure ns_server profile
-  nsServerProfileConfig = "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
+  nsServerProfileConfig = can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
 
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
-  source_ami_name = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
+  neo_source_ami_name = local.ami_arch == "arm64"  ? "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2" : "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
+  source_ami_name = can(regex("7.2", var.product_version)) ? "${local.neo_source_ami_name}" :  "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
+
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
   exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
   process-exporter_version = "0.7.5"
