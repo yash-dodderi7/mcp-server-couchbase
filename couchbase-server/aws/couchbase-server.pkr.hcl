@@ -181,7 +181,8 @@ build {
       "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Setup ns_server profile
       "${local.nsServerProfileConfig}",
-      "sudo yum install -y /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-linux.${var.product_arch}.rpm",
+      "export INSTALL_DONT_START_SERVER=1",
+      "sudo -E yum install -y /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-linux.${var.product_arch}.rpm",
       "rm /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-linux.${var.product_arch}.rpm",
       // Setup the directory for the TLS certificate and key
       "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",

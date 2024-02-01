@@ -220,7 +220,8 @@ build {
       "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Setup ns_server profile
       "${local.nsServerProfileConfig}",
-      "sudo apt install -y /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
+      "export INSTALL_DONT_START_SERVER=1",
+      "sudo -E apt install -y /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
       "sudo rm /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
       // Setup the directory for the TLS certificate and key
       "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",
