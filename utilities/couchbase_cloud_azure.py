@@ -1,41 +1,64 @@
 #!/usr/bin/env python3
 
-# Azure is accessible by client id and secret.
+# This script is used by cb-robot in data center to manage images on Azure.
+# It is unlikely an individual can run this script since she/he may not have
+# proper permissions.
 
-from azure.mgmt.compute import ComputeManagementClient
-from azure.mgmt.resource import ResourceManagementClient
-from azure.identity import ClientSecretCredential
+import argparse
+import logging
 import sys
+from aws_utils import AWSUtils
+from azure_utils import AzureUtils
+import common_utils
 
-class CouchbaseCloudAzure:
-    def __init__(self, client_id, client_secret, subscription_id, tenant_id):
-        credential = ClientSecretCredential(
-            client_id=client_id,
-            client_secret=client_secret,
-            tenant_id=tenant_id
-        )
-        self.compute_client = ComputeManagementClient(credential, subscription_id)
-        self.resource_client = ResourceManagementClient(credential, subscription_id)
+logger = logging.getLogger()
+if not logger.handlers:
+    logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler(stream=sys.stdout)
+    logger.addHandler(console_handler)
 
-    def get_gallery(self, resource_name, gallery_name):
-        return self.compute_client.galleries.get(resource_name, gallery_name)
 
-    def get_image_definitions(self, resource_name, gallery_name):
-        return self.compute_client.gallery_images.list_by_gallery(resource_name, gallery_name)
+def delete_image(env_name, image_name):
+    azure_vars = common_utils.get_env_vars(
+        'azure',
+        env_name)
+    aws_vars = common_utils.get_env_vars(
+        'aws',
+        env_name)
+    aws = AWSUtils(aws_vars['ROLE_SESSION_NAME'], 'us-east-1')
+    client_secret = aws.get_secret(aws_vars['AZURE_CLIENT_SECRET_NAME'])
+    if client_secret is None:
+        sys.exit(f'Unable to obtain CLIENT_SECRET to delete images')
+    couchbaseazure = AzureUtils(
+        azure_vars['CLIENT_ID'],
+        client_secret,
+        azure_vars['TENANT_ID'],
+        azure_vars['SUBSCRIPTION_ID'])
+    resource_group = 'image-factory'
+    image_gallery = 'capella'
+    gallery_image_info = image_name.split('-v', 1)
+    gallery_image_name = gallery_image_info[0]
+    gallery_image_version = gallery_image_info[1]
+    response = couchbaseazure.get_image_by_name(resource_group, image_name)
+    if True:
+        couchbaseazure.delete_image_by_name(resource_group, image_name)
+        couchbaseazure.delete_image_version(
+            resource_group, image_gallery, gallery_image_name, gallery_image_version)
 
-    def get_image_definition(self, resource_name, gallery_name, image_definition_name):
-        return self.compute_client.gallery_images.get(resource_name, gallery_name, image_definition_name)
 
-    def get_images_by_resource_group(self, resource_group):
-        images=[]
-        image_versions=[]
-        resource_list = self.resource_client.resources.list_by_resource_group(
-            resource_group, expand = 'type, identity, createdTime, changedTime')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        'Couchbase AZure Cloud', allow_abbrev=False)
+    subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
 
-        # We are only interested in image and image version
-        for resource in list(resource_list):
-            if resource.type == 'Microsoft.Compute/galleries/images/versions':
-                image_versions.append(resource)
-            if resource.type == 'Microsoft.Compute/images':
-                images.append(resource)
-        return images, image_versions
+    subparser_delete_image = subparsers.add_parser(
+        'delete_image', help='delete an image from an Azure account')
+    subparser_delete_image.add_argument(
+        '--image_name', type=str, required=True, help='Azure image name')
+    subparser_delete_image.add_argument(
+        '--env', type=str, required=True, help='Which environment will the image be deleted from')
+
+    args = parser.parse_args()
+
+    if args.cmd == 'delete_image':
+        delete_image(args.env, args.image_name)

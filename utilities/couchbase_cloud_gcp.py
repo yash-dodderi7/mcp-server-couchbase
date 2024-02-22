@@ -7,147 +7,50 @@
 ## 3. Generate an access_token/impersonated access_token from GCP IAM for a service account
 
 
-import json
-import urllib
-import requests
-import boto3
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
-import logging
-import sys
 import argparse
-import shutil
-import os
-import google.oauth2.credentials
-from googleapiclient import discovery
-from pprint import pprint
+import logging
+from gcp_utils import GCPUtils
+import common_utils
 
-logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s',
-                    stream=sys.stderr, level=logging.INFO)
+logger = logging.getLogger()
+if not logger.handlers:
+    logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler(stream=sys.stdout)
+    logger.addHandler(console_handler)
 
-class CouchbaseCloudGCP:
+def get_access_token(env):
+    gcp = GCPUtils(env)
+    logger.info(gcp.access_token_impersonated)
 
-    def __init__(self, env):
-        print(f'env is {env}')
-        environments = json.loads(open('environments.json').read())
-        gcp_config = environments[env]['gcp']
-        self.rc_project_id = gcp_config['RC_PROJECT_ID']
-        self.rc_project_number = gcp_config['RC_PROJECT_NUMBER']
-        self.pool_id = gcp_config['POOL_ID']
-        self.provider_id = gcp_config['PROVIDER_ID']
-        self.idp_user = gcp_config['IDP_USER']
-        self.impersonated_user = gcp_config['IMPERSONATED_USER']
-
-    def create_token_aws(self):
-        gcp_wip_provider = f'//iam.googleapis.com/projects/{self.rc_project_number}/locations/global/workloadIdentityPools/{self.pool_id}/providers/{self.provider_id}'
-
-        headers = {
-            'Host': 'sts.amazonaws.com',
-            'x-goog-cloud-target-resource': gcp_wip_provider
-        }
-        url = 'https://sts.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15'
-        request = AWSRequest(
-            method='POST',
-            url=url,
-            headers=headers
-        )
-
-        # Sign the request.
-        # Signed token lets workload identity federation verify the identity without revealing the AWS secret access key.
-
-        session = boto3.Session()
-        credentials = session.get_credentials()
-        SigV4Auth(credentials, 'sts', 'us-east-1').add_auth(request)
-
-        # Create token from signed request.
-        # headers need to be transformed into key value format
-        result = {
-            'url': request.url,
-            'method': request.method,
-            'headers': []
-        }
-
-        # headers need to be in the form of {"key": "", "value": ""} pairs
-        for key, value in request.headers.items():
-            result['headers'].append({'key': key, 'value': value})
-        result = urllib.parse.quote(json.dumps(result))
-
-        return result
-
-
-    # Request and retrieve an sts token from google.
-    def generate_sts_token(self, token):
-        audience = f'//iam.googleapis.com/projects/{self.rc_project_number}/locations/global/workloadIdentityPools/{self.pool_id}/providers/{self.provider_id}'
-
-        data = {
-            'audience'           : audience,
-            'grantType'          : 'urn:ietf:params:oauth:grant-type:token-exchange',
-            'requestedTokenType' : 'urn:ietf:params:oauth:token-type:access_token',
-            'scope'              : 'https://www.googleapis.com/auth/cloud-platform',
-            'subjectTokenType'   : 'urn:ietf:params:aws:token-type:aws4_request',
-            'subjectToken'       : token
-        }
-
-        headers = {
-            'Content-Type': 'application/json'
-        }
-
-        try:
-            request = requests.post('https://sts.googleapis.com/v1/token',
-                headers=headers, data=json.dumps(data))
-            request.raise_for_status()
-        except requests.exceptions.HTTPError as err:
-            raise SystemExit(err)
-
-        result = request.json()
-
-        if 'access_token' not in result:
-            logging.error(f'Key, expires_in and/or access_token, does not exist.  The returned json is invalid.\n\n{result}')
-            sys.exit()
-
-        return result['access_token']
-
-    # Uses the sts token from google sts to request an access token from GCP IAM using a service account
-    def generate_access_token(self, token, account):
-        data = {
-            'scope': [ 'https://www.googleapis.com/auth/cloud-platform' ]
-        }
-
-        headers = {
-            'Content-Type': 'text/json; charset=utf-8',
-            'Authorization': 'Bearer {}'.format(token)
-        }
-
-        url = f'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/{account}:generateAccessToken'
-
-        try:
-            request = requests.post(url, headers=headers, data=json.dumps(data))
-            request.raise_for_status()
-        except requests.exceptions.HTTPError as err:
-            raise SystemExit(err)
-
-        result = request.json()
-        if 'accessToken' not in result:
-            logging.error(f'Key, accessToken, does not exist.  The returned json is invalid.\n\n{result}')
-            sys.exit()
-
-        return result['accessToken']
-
+def delete_image(env, image_name_pattern):
+    couchbasegcp=GCPUtils(env)
+    images = couchbasegcp.search_image_by_pattern(image_name_pattern)
+    if images is None:
+        logger.info(f"{image_name_pattern} does not exist.  It will not be deleted.")
+    else:
+        for image in images:
+            couchbasegcp.delete_image_by_name(image)
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('GCP Utilities')
-    parser.add_argument('-e', '--environment', required=True,
-                    help='environment, i.e. test, dev, prod')
+    parser = argparse.ArgumentParser('Couchbase GCP Cloud', allow_abbrev=False)
+    subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
+    subparser_get_access_token = subparsers.add_parser(
+        'get_access_token', help='Get authentication token')
+    subparser_get_access_token.add_argument(
+        '--env',
+        type=str,
+        required=True,
+        help='Obtain token from which environment')
+    subparser_delete_image = subparsers.add_parser(
+        'delete_image', help='delete an image from an Azure account')
+    subparser_delete_image.add_argument(
+        '--image_name', type=str, required=True, help='Image name')
+    subparser_delete_image.add_argument(
+        '--env', type=str, required=True, help='Which environment will the image be deleted from')
+
     args = parser.parse_args()
 
-    env=args.environment
-    couchbasecloudgcp = CouchbaseCloudGCP(env)
-    signed_aws_token = couchbasecloudgcp.create_token_aws()
-    sts_token = couchbasecloudgcp.generate_sts_token(signed_aws_token)
+    if args.cmd == 'get_access_token':
+        get_access_token(args.env)
 
-    # use the sts token to generate an access token.
-    access_token = couchbasecloudgcp.generate_access_token(sts_token, couchbasecloudgcp.idp_user)
-    access_token_impersonated = couchbasecloudgcp.generate_access_token(access_token, couchbasecloudgcp.impersonated_user)
-    shutil.rmtree('.gcp', ignore_errors=True)
-    os.mkdir('.gcp')
-    with open(f'.gcp/{env}', 'w') as file:
-        file.write(access_token_impersonated)
+    if args.cmd == 'delete_image':
+        delete_image(args.env, args.image_name)

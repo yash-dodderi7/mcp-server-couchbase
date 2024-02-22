@@ -93,28 +93,23 @@ def copy_ami(ami_name, source, source_profile,
     )
 
 
-def delete_ami(ami_name, aws_profile, aws_region):
+def delete_ami(ami_name_pattern, aws_profile, aws_region):
     couchbaseaws = AWSUtils(aws_profile, aws_region)
-    amis = couchbaseaws.search_ami_by_pattern(ami_name)
-    if len(amis) > 1:
-        logger.info(
-            f'More than 1 AMI is found on {aws_profile} {aws_name}.  '
-        )
-        return
+    amis = couchbaseaws.search_ami_by_pattern(ami_name_pattern)
     if len(amis) == 0:
         logger.info(
             f'No AMI named, {ami_name}, is found on {aws_profile} {aws_region}.  '
             f'Nothing to delete.'
         )
         return
-    ami = amis[0]
-    logger.info(f"Removing {ami_name} {ami['ImageId']}.")
-    couchbaseaws.client.deregister_image(ImageId=ami['ImageId'])
-    for device in ami['BlockDeviceMappings']:
-        if 'Ebs' in device:
-            snapshot_id = device['Ebs']['SnapshotId']
-            logger.info(f"Removing {snapshot_id} of {ami['ImageId']}.")
-            couchbaseaws.client.delete_snapshot(SnapshotId=snapshot_id)
+    for ami in amis:
+        logger.info(f"Removing {ami['ImageLocation']} from {aws_region}.")
+        couchbaseaws.client.deregister_image(ImageId=ami['ImageId'])
+        for device in ami['BlockDeviceMappings']:
+            if 'Ebs' in device:
+                snapshot_id = device['Ebs']['SnapshotId']
+                logger.info(f"Removing {snapshot_id} of {ami['ImageId']}.")
+                couchbaseaws.client.delete_snapshot(SnapshotId=snapshot_id)
 
 
 if __name__ == "__main__":
