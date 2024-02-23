@@ -29,7 +29,7 @@ def delete_image(env, image_name_pattern):
         logger.info(f"{image_name_pattern} does not exist.  It will not be deleted.")
     else:
         for image in images:
-            couchbasegcp.delete_image_by_name(image)
+            couchbasegcp.delete_image_by_name(image.name)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Couchbase GCP Cloud', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
