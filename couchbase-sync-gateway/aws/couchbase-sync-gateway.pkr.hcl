@@ -28,6 +28,8 @@ locals {
   node_exporter_version = "1.1.2"
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
 
+  // install & enable sgw-observer
+  sgwObserverConfig = "sudo mv /tmp/sgw-observer.service /lib/systemd/system/sgw-observer.service && sudo gunzip -c /tmp/sgw-observer.gz > /home/ec2-user/sgw-observer && sudo chmod +x /home/ec2-user/sgw-observer && sudo systemctl enable sgw-observer.service"
 }
 
 source "amazon-ebs" "cc" {
@@ -91,6 +93,16 @@ build {
   }
 
   provisioner "file" {
+    destination = "/tmp/"
+    source      = "agents/${var.product_arch}/sgw-observer.gz"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "sgw-observer.service"
+  }
+
+  provisioner "file" {
     destination = "/tmp/journald.conf"
     source      = "journald.conf"
   }
@@ -139,6 +151,9 @@ build {
       "sudo gunzip /home/ec2-user/${local.dp_service}.gz",
       "sudo chmod +x /home/ec2-user/${local.dp_service}",
       "sudo systemctl enable ${local.dp_service}.service",
+      // Install & configure sgw-observer
+      "${local.sgwObserverConfig}",
+      "sudo rm -f /tmp/sgw-observer*",
       // Install firewall service
       "sudo mv /tmp/sgw-firewall.service /lib/systemd/system/sgw-firewall.service",
       "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",
