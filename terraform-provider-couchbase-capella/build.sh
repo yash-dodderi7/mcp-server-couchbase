@@ -18,8 +18,7 @@ function install_deps() {
   chmod +x cbdep
   TERRAFORM_VER=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/terraform \
     | jq -r -M '.current_version')
-  GO_MIN_VER=$(cat go.mod | grep ^go |awk '{print $2}')
-  GO_VER=$(echo -e "1.21.3\n${GO_MIN_VER}" |sort -r | head -1)
+  GO_VER=$(${WORKSPACE}/golang/util/get-go-ver.sh ${WORKSPACE})
   ./cbdep install golang ${GO_VER} -d ${WORKSPACE}/extra
   ./cbdep install terraform ${TERRAFORM_VER} -d ${WORKSPACE}/extra
   export PATH=${WORKSPACE}/extra/go${GO_VER}/bin:${WORKSPACE}/extra/terraform-${TERRAFORM_VER}/bin:$PATH
