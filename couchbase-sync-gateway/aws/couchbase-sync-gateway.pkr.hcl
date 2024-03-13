@@ -16,9 +16,6 @@ variable "ami_regions" {
 variable "region" {
   type = string
 }
-variable "product_arch" {
-  type = string
-}
 
 locals {
   instance_type = "t2.micro"
@@ -94,7 +91,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "agents/${var.product_arch}/sgw-observer.gz"
+    source      = "agents/${local.product_arch}/sgw-observer.gz"
   }
 
   provisioner "file" {

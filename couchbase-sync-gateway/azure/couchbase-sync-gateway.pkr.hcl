@@ -128,7 +128,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "agents/${var.product_arch}/sgw-observer.gz"
+    source      = "agents/${local.product_arch}/sgw-observer.gz"
   }
 
   provisioner "file" {
