@@ -2,11 +2,11 @@
 
 # AWS helper functions
 
-import boto3
-import botocore
+import logging
 import sys
 import time
-import logging
+import boto3
+import botocore
 
 # Make boto3 less verbose
 logging.getLogger("boto3").setLevel(logging.WARN)
@@ -24,6 +24,11 @@ class AWSUtils:
         self.client = self.session.client('ec2', region_name=region_name)
         self.sts = self.session.client('sts')
         self.aws_account_id = self.sts.get_caller_identity()['Account']
+
+    def get_regions(self):
+        response = self.client.describe_regions()
+        regions = [region['RegionName'] for region in response['Regions']]
+        return regions
 
     def get_ami_by_id(self, ami_id):
         response = self.client.describe_images(ImageIds=[ami_id])

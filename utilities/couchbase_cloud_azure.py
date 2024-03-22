@@ -6,6 +6,7 @@
 
 import argparse
 import logging
+import re
 import sys
 from aws_utils import AWSUtils
 from azure_utils import AzureUtils
@@ -17,33 +18,63 @@ if not logger.handlers:
     console_handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(console_handler)
 
-
-def delete_image(env_name, image_name):
+def couchbase_azure_session(env):
     azure_vars = common_utils.get_env_vars(
         'azure',
-        env_name)
+        env)
     aws_vars = common_utils.get_env_vars(
         'aws',
-        env_name)
+        env)
     aws = AWSUtils(aws_vars['ROLE_SESSION_NAME'], 'us-east-1')
     client_secret = aws.get_secret(aws_vars['AZURE_CLIENT_SECRET_NAME'])
     if client_secret is None:
-        sys.exit(f'Unable to obtain CLIENT_SECRET to delete images')
+        sys.exit(f'Unable to obtain Azure CLIENT_SECRET for {env}')
     couchbaseazure = AzureUtils(
         azure_vars['CLIENT_ID'],
         client_secret,
         azure_vars['TENANT_ID'],
         azure_vars['SUBSCRIPTION_ID'])
-    resource_group = 'image-factory'
+    return couchbaseazure
+
+def get_regions(env):
+    couchbaseazure = couchbase_azure_session(env)
+    regions = couchbaseazure.get_regions()
+    logger.info(f'{regions}')
+
+def delete_image(env, image_name):
+    couchbaseazure = couchbase_azure_session(env)
+    resource_group_name = 'image-factory'
     image_gallery = 'capella'
     gallery_image_info = image_name.split('-v', 1)
     gallery_image_name = gallery_image_info[0]
     gallery_image_version = gallery_image_info[1]
-    response = couchbaseazure.get_image_by_name(resource_group, image_name)
-    if True:
-        couchbaseazure.delete_image_by_name(resource_group, image_name)
+    result = couchbaseazure.get_image_by_name(resource_group_name, image_name)
+    if result:
+        couchbaseazure.delete_image_by_name(resource_group_name, image_name)
         couchbaseazure.delete_image_version(
-            resource_group, image_gallery, gallery_image_name, gallery_image_version)
+            resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
+
+def create_image_definition(env, image_definition_name):
+    couchbaseazure = couchbase_azure_session(env)
+    resource_group_name = 'image-factory'
+    gallery_name = 'capella'
+    result = couchbaseazure.get_image_definition(resource_group_name, gallery_name, image_definition_name)
+    if result:
+        logger.info(f'Image definition, {image_definition_name}, already exist.  It will not be created again.')
+    else:
+        logger.info(f'Creating image definition, {image_definition_name}.')
+        offer = re.sub('-\d+.\d+.\d+', '', image_definition_name)
+        image_definition = {}
+        image_definition['identifier'] = {}
+        image_definition['architecture'] = 'x64'
+        image_definition['hyper_v_generation'] = "V2"
+        image_definition['location'] = 'eastus'
+        image_definition['os_state'] = 'Generalized'
+        image_definition['os_type'] = 'Linux'
+        image_definition['identifier']['publisher'] = 'couchbase-capella'
+        image_definition['identifier']['offer'] = offer
+        image_definition['identifier']['sku'] = image_definition_name
+        couchbaseazure.create_image_definition(resource_group_name, gallery_name, image_definition_name, image_definition)
 
 
 if __name__ == "__main__":
@@ -57,8 +88,28 @@ if __name__ == "__main__":
         '--image_name', type=str, required=True, help='Azure image name')
     subparser_delete_image.add_argument(
         '--env', type=str, required=True, help='Which environment will the image be deleted from')
+    subparser_get_regions = subparsers.add_parser(
+        'get_regions', help='Get enabled regions from an Azure account')
+    subparser_get_regions.add_argument(
+        '--env', type=str, required=True, help='Which environment to list the regions')
+    subparser_create_image_definition = subparsers.add_parser(
+        'create_image_definition', help='Create image definition if it does not exist')
+    subparser_create_image_definition.add_argument(
+        '--env', type=str, required=True, help='Which environment to create image definition in')
+    subparser_create_image_definition.add_argument(
+        '--image_definition_name', type=str, required=True, help='The name of image definition')
+
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
     args = parser.parse_args()
 
     if args.cmd == 'delete_image':
         delete_image(args.env, args.image_name)
+
+    if args.cmd == 'get_regions':
+        get_regions(args.env)
+
+    if args.cmd == 'create_image_definition':
+        create_image_definition(args.env, args.image_definition_name)

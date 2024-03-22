@@ -9,6 +9,7 @@
 
 import argparse
 import logging
+import sys
 from gcp_utils import GCPUtils
 import common_utils
 
@@ -41,11 +42,15 @@ if __name__ == '__main__':
         required=True,
         help='Obtain token from which environment')
     subparser_delete_image = subparsers.add_parser(
-        'delete_image', help='delete an image from an Azure account')
+        'delete_image', help='delete an image from an GCP account')
     subparser_delete_image.add_argument(
         '--image_name', type=str, required=True, help='Image name')
     subparser_delete_image.add_argument(
         '--env', type=str, required=True, help='Which environment will the image be deleted from')
+
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
     args = parser.parse_args()
 

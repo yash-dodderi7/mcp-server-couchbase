@@ -4,17 +4,17 @@
 GCP helper functions
 '''
 
+import json
+import logging
+import os
+import sys
+import urllib
+import requests
 import boto3
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 import google.oauth2.credentials
 from google.cloud import compute_v1
-import json
-import logging
-import os
-import requests
-import sys
-import urllib
 import common_utils
 
 logger = logging.getLogger("googleapiclient")
@@ -40,13 +40,13 @@ class GCPUtils:
         https://cloud.google.com/iam/docs/configuring-workload-identity-federation
         '''
 
-        vars = common_utils.get_env_vars('gcp', env)
-        self.image_factory_project_id = vars['IMAGE_FACTORY_PROJECT_ID']
-        self.rc_project_number = vars['RC_PROJECT_NUMBER']
-        self.pool_id = vars['POOL_ID']
-        self.provider_id = vars['PROVIDER_ID']
-        self.idp_user = vars['IDP_USER']
-        self.impersonated_user = vars['IMPERSONATED_USER']
+        env_vars = common_utils.get_env_vars('gcp', env)
+        self.image_factory_project_id = env_vars['IMAGE_FACTORY_PROJECT_ID']
+        self.rc_project_number = env_vars['RC_PROJECT_NUMBER']
+        self.pool_id = env_vars['POOL_ID']
+        self.provider_id = env_vars['PROVIDER_ID']
+        self.idp_user = env_vars['IDP_USER']
+        self.impersonated_user = env_vars['IMPERSONATED_USER']
 
         signed_aws_token = self.create_aws_token()
         sts_token = self.generate_sts_token(signed_aws_token)
@@ -120,10 +120,10 @@ class GCPUtils:
         }
         try:
             request = requests.post('https://sts.googleapis.com/v1/token',
-                                    headers=headers, data=json.dumps(data))
+                                    headers=headers, data=json.dumps(data), timeout=10)
             request.raise_for_status()
         except requests.exceptions.HTTPError as err:
-            raise SystemExit(err)
+            raise SystemExit(err) from err
         result = request.json()
 
         if 'access_token' not in result:
@@ -150,10 +150,10 @@ class GCPUtils:
         )
         try:
             request = requests.post(
-                url, headers=headers, data=json.dumps(data))
+                url, headers=headers, data=json.dumps(data), timeout=10)
             request.raise_for_status()
         except requests.exceptions.HTTPError as err:
-            raise SystemExit(err)
+            raise SystemExit(err) from err
         result = request.json()
         if 'accessToken' not in result:
             logging.error(

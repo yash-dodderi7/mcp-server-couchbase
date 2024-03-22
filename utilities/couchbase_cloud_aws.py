@@ -4,12 +4,12 @@
 # It is unlikely an individual can run this script since she/he may not have
 # proper permissions.
 
-import boto3
-import botocore
 import argparse
 import logging
 import os
 import sys
+import boto3
+import botocore
 from aws_utils import AWSUtils
 import common_utils
 
@@ -113,15 +113,6 @@ def delete_ami(ami_name_pattern, aws_profile, aws_region):
 
 
 if __name__ == "__main__":
-    # Current supported regions
-    regions = ['af-south-1', 'ap-east-1', 'ap-northeast-1',
-               'ap-northeast-2', 'ap-south-1', 'ap-south-2', 'ap-southeast-1',
-               'ap-southeast-2', 'ap-southeast-3', 'ap-southeast-4', 'ca-central-1',
-               'eu-central-1', 'eu-central-2', 'eu-north-1', 'eu-south-1',
-               'eu-south-2', 'eu-west-1', 'eu-west-2', 'eu-west-3', 'il-central-1',
-               'me-central-1', 'me-south-1', 'sa-east-1', 'us-east-1', 'us-east-2',
-               'us-west-2']
-
     parser = argparse.ArgumentParser('Couchbase AWS Cloud', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
 
@@ -137,13 +128,9 @@ if __name__ == "__main__":
         type=str,
         default='.env',
         help='Comma separated files containing variables needed by the packer script')
-    subparser_build_ami.add_argument(
-        '--skip_copy',
-        action='store_true',
-        help='Skip copy AMIs to other regions')
 
     subparser_copy_ami = subparsers.add_parser(
-        'copy_ami', help='Promote(Copy) an AMI to another aws account')
+        'copy_ami', help='Promote(Copy) an AMI to another AWS account')
     subparser_copy_ami.add_argument(
         '--ami_name', type=str, required=True, help='AMI name')
     subparser_copy_ami.add_argument(
@@ -167,7 +154,7 @@ if __name__ == "__main__":
         help='Comma separated regions where AMI is copied to')
 
     subparser_delete_ami = subparsers.add_parser(
-        'delete_ami', help='Deregister an AMI from all regions of an aws account')
+        'delete_ami', help='Deregister an AMI from all regions of an AWS account')
     subparser_delete_ami.add_argument(
         '--ami_name', type=str, required=True, help='AMI name')
 
@@ -175,6 +162,13 @@ if __name__ == "__main__":
         'get_secret', help='Pull secret from AWS Secret Manager')
     subparser_get_secret.add_argument(
         '--secret_name', type=str, required=True, help='secret name')
+
+    subparser_get_regoins = subparsers.add_parser(
+        'get_regions', help='Get a list of regions that are enabled for an account')
+
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
     args = parser.parse_args()
 
@@ -185,31 +179,19 @@ if __name__ == "__main__":
         aws_profile = os.getenv('AWS_PROFILE')
         common_utils.concurrent_executor(build_ami, 4, aws_profile,
                                          aws_region, packer_script, items=var_files)
-        if not args.skip_copy:
-            ami_list = []
-            for var_file in var_files:
-                vars = common_utils.load_packer_env(var_file, 'ami_name')
-                ami_name = vars['ami_name']
-                ami_list.append(ami_name)
-            common_utils.concurrent_executor_two_lists(
-                copy_ami,
-                25,
-                '',
-                aws_profile,
-                aws_region,
-                aws_profile,
-                items1=ami_list,
-                items2=regions)
 
     if args.cmd == 'copy_ami':
-        if not args.dest_regions:
-            dest_regions = regions
-        else:
-            args.dest_regions.split(',')
         couchbaseaws = AWSUtils(args.source_profile, args.source_region)
         target_session = boto3.Session(profile_name=args.dest_profile)
         target_sts = target_session.client('sts')
         target_aws_account_id = target_sts.get_caller_identity()['Account']
+        if not args.dest_regions:
+            # In Capella, identical regions are enabled across all accounts.
+            # Hence, getting them from the source account is the same as getting
+            # the destination account.
+            dest_regions = couchbaseaws.get_regions()
+        else:
+            dest_regions = args.dest_regions.split(',')
 
         # Share the image with the destination account so that it can be
         # copied.
@@ -235,3 +217,9 @@ if __name__ == "__main__":
         couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
         response = couchbaseaws.get_secret(args.secret_name)
         logger.info(f'{response}')
+
+    if args.cmd == 'get_regions':
+        aws_profile = os.getenv('AWS_PROFILE')
+        couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
+        regions = couchbaseaws.get_regions()
+        logger.info(f'{regions}')

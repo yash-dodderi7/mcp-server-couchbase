@@ -108,7 +108,7 @@ RESOURCE_GROUP="image-factory"
 GALLERY_NAME="capella"
 PLATFORM="linux"
 REGION="eastus"
-REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastasia", "eastus", "eastus2", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "southcentralus", "switzerlandnorth", "uaenorth", "uksouth", "westeurope", "westus2", "westus3"]'
+REPLICATION_REGIONS=$(python3 couchbase_cloud_azure.py get_regions)
 
 while getopts p:r:v:b:c:g:s:i:t:o:w: opt
 do
@@ -145,7 +145,7 @@ if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${C
 fi
 
 IMAGE_DEFINITION=${PRODUCT}-${VERSION}
-if [[ "${TOY_RELEASE}" == "toybuilds" ]]; then
+if [[ "${TOY_RELEASE}" == "true" ]]; then
   IMAGE_DEFINITION="Toy-${PRODUCT}-${VERSION}"
 fi
 
