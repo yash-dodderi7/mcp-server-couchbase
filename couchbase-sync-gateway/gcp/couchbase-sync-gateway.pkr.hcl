@@ -55,6 +55,7 @@ source "googlecompute" "cc" {
   project_id = "${var.project_id}"
   source_image = "${local.source_image}"
   zone = "${var.zone}"
+  disk_size = 10
   // both network and subnetwork name are identicial.
   network = "${var.network_id}"
   subnetwork = "${var.network_id}"
