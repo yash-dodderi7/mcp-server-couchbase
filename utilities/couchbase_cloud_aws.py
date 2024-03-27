@@ -209,6 +209,8 @@ if __name__ == "__main__":
     if args.cmd == 'delete_ami':
         aws_profile = os.getenv('AWS_PROFILE')
         ami_name = args.ami_name
+        couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
+        regions = couchbaseaws.get_regions()
         common_utils.concurrent_executor(delete_ami, 25, ami_name,
                                          aws_profile, items=regions)
 

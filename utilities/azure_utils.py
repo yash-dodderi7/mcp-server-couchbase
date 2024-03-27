@@ -8,9 +8,8 @@ from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.resource import SubscriptionClient
 from azure.identity import ClientSecretCredential
 
-logger = logging.getLogger("azure.core.pipeline.policies.http_logging_policy")
-logger.setLevel(logging.WARNING)
-
+logger = logging.getLogger('azure')
+logger.setLevel(logging.ERROR)
 
 class AzureUtils:
     def __init__(self, client_id, client_secret, tenant_id, subscription_id):
