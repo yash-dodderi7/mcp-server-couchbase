@@ -1,4 +1,4 @@
-variable "product_name" {
+variable "product_pkg_name" {
   type = string
 }
 variable "product_version" {
@@ -92,7 +92,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-linux.${var.product_arch}.rpm"
+    source      = "${var.product_pkg_name}"
   }
 
   provisioner "file" {
@@ -182,8 +182,8 @@ build {
       // Setup ns_server profile
       "${local.nsServerProfileConfig}",
       "export INSTALL_DONT_START_SERVER=1",
-      "sudo -E yum install -y /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-linux.${var.product_arch}.rpm",
-      "rm /tmp/couchbase-server-enterprise-${var.product_version}-${var.product_bld_num}-linux.${var.product_arch}.rpm",
+      "sudo -E yum install -y /tmp/${var.product_pkg_name}",
+      "rm /tmp/${var.product_pkg_name}",
       // Setup the directory for the TLS certificate and key
       "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",
       "sudo touch /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",

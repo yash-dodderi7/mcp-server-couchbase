@@ -1,4 +1,4 @@
-variable "product_name" {
+variable "product_pkg_name" {
   type = string
 }
 variable "product_version" {
@@ -66,7 +66,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.rpm"
+    source      = "${var.product_pkg_name"
   }
 
   provisioner "file" {
@@ -127,8 +127,8 @@ build {
       "sudo sysctl vm.swappiness=0",
       // Install dependent packages:
       "sudo yum install -y bzip2 wget rsync",
-      "sudo yum install -y /tmp/couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.rpm",
-      "sudo rm /tmp/couchbase-sync-gateway-enterprise_${var.product_version}-${var.product_bld_num}_${local.product_arch}.rpm",
+      "sudo yum install -y /tmp/${var.product_pkg_name}",
+      "sudo rm /tmp/${var.product_pkg_name}",
       // Remove the default startup config.
       "sudo rm -rf /home/sync_gateway/sync_gateway.json",
       // Replace the config env in the systemd file with the path of the

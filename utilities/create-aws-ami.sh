@@ -25,10 +25,8 @@ function download_files
 
 function create_ami
 {
-    local AMI_PRODUCT="${1}"
-    local PACKER_FILE="${2}"
     if [[ -z ${AMI_NAME_OVERWRITE} ]]; then
-        AMI_NAME=${AMI_PRODUCT}-${VERSION}-${BLD_NUM}
+        AMI_NAME=${PRODUCT}-${VERSION}-${BLD_NUM}
     else
         AMI_NAME=${AMI_NAME_OVERWRITE}
     fi
@@ -39,19 +37,22 @@ rm .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
 cat <<EOT >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
 export PKR_VAR_region=${AWS_REGION}
 export PKR_VAR_ami_regions='${AMI_REGIONS}'
-export PKR_VAR_product_name=${AMI_PRODUCT}
+export PKR_VAR_product_pkg_name=${PRODUCT_PKG_NAME}
 export PKR_VAR_product_version=${VERSION}
 export PKR_VAR_product_bld_num=${BLD_NUM}
 export PKR_VAR_ami_name=${AMI_NAME}
-export PKR_VAR_product_platform=linux
 export PKR_VAR_product_arch=${ARCH}
 export PKR_VAR_agent_sha=${AGENT_SHA}
 EOT
 
     #packer variables specific for couchbase-server
-    case ${AMI_PRODUCT} in
+    case ${PRODUCT} in
         couchbase-serverless-server*)
             echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+           ;;
+        couchbase-columnar)
+            echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-serverless-backup*)
@@ -132,44 +133,35 @@ fi
 #       couchbase-data-api
 
 case ${PRODUCT} in
-    couchbase-cloud*)
-        packer_file="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+    couchbase-cloud-server|couchbase-cloud-backup|couchbase-serverless*)
+        PACKER_FILE="couchbase-server.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
-        download_files
-        create_ami ${PRODUCT} ${packer_file}
         ;;
-    couchbase-serverless*)
-        if [[ ${PRODUCT} == *"perf" ]]; then
-            packer_file="couchbase-server-perf.pkr.hcl"
-        else
-            packer_file="couchbase-server.pkr.hcl"
-        fi
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+    couchbase-columnar)
+        PACKER_FILE="couchbase-server.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-columnar-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-columnar/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
-        download_files
-
-        #Temporarily add "x86_64" to AMI name for Intel.
-        #Per discussion with the team, we will stop building x86_64 after offically switch over to arm64.
-        if [[ ${ARCH} == "x86_64" ]]; then
-            AMI_NAME_OVERWRITE=${PRODUCT}-${VERSION}-${BLD_NUM}-x86_64
-        fi
-        create_ami ${PRODUCT} ${packer_file}
         ;;
     direct-nebula|couchbase-data-api)
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT}_${VERSION}-${BLD_NUM}-linux.${ARCH}.tar.gz"
+        PACKER_FILE="${PRODUCT}.pkr.hcl"
+        PRODUCT_PKG_NAME="${PRODUCT}_${VERSION}-${BLD_NUM}-linux.${ARCH}.tar.gz"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
-        download_files
-        create_ami ${PRODUCT} ${PRODUCT}.pkr.hcl
         ;;
-    couchbase-sync-gateway)
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/${PRODUCT}-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.rpm"
+    couchbase-cloud-sync-gateway)
+        PACKER_FILE="${PRODUCT}.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.rpm"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
-        download_files
-        create_ami ${PRODUCT} ${PRODUCT}.pkr.hcl
         ;;
     *)
         echo "${PRODUCT} is not supported"
         exit -1
         ;;
 esac
+
+download_files
+create_ami ${PRODUCT_PKG_NAME} ${PACKER_FILE}

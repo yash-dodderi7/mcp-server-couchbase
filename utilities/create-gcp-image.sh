@@ -20,11 +20,9 @@ function download_files
 
 function create_image
 {
-    local IMAGE_PRODUCT="${1}"
-    local PACKER_FILE="${2}"
     # GCP image does not allow dot
     IMAGE_VERSION=$(echo ${VERSION}|sed 's/\./-/g')
-    IMAGE_NAME=${IMAGE_PRODUCT}-${IMAGE_VERSION}-${BLD_NUM}
+    IMAGE_NAME=${PRODUCT}-${IMAGE_VERSION}-${BLD_NUM}
     if [[ ! -z ${IMAGE_NAME_OVERWRITE} ]]; then
         IMAGE_NAME=${IMAGE_NAME_OVERWRITE}
     fi
@@ -36,7 +34,7 @@ function create_image
 #make sure .env is created fresh
     rm .env-${IMAGE_NAME}-${ARCH}-${ENV}
 cat <<EOT >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
-export PKR_VAR_product_name=${IMAGE_PRODUCT}
+export PKR_VAR_product_pkg_name=${PRODUCT_PKG_NAME}
 export PKR_VAR_product_version=${VERSION}
 export PKR_VAR_product_bld_num=${BLD_NUM}
 export PKR_VAR_product_arch=${ARCH}
@@ -50,15 +48,7 @@ export PKR_VAR_agent_sha=${AGENT_SHA}
 EOT
 
     #packer variables specific for couchbase-server
-    case ${IMAGE_PRODUCT} in
-        couchbase-serverless-server*)
-            echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
-           ;;
-        couchbase-serverless-backup*)
-            echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
-            echo "export PKR_VAR_dp_service=dp-backup" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
-           ;;
+    case ${PRODUCT} in
         couchbase-cloud-server*)
             echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
@@ -66,6 +56,10 @@ EOT
         couchbase-cloud-backup*)
             echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+           ;;
+        couchbase-columnar)
+            echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         *)
            ;;
@@ -138,35 +132,29 @@ IMAGE_DEFINITION=${PRODUCT}-${VERSION}
 
 case ${PRODUCT} in
     couchbase-cloud-server|couchbase-cloud-backup)
-        packer_file="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise_${VERSION}-${BLD_NUM}-${PLATFORM}_${ARCH}.deb"
+        PACKER_FILE="couchbase-server.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-server-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/gcp
-        download_files
-        create_image ${PRODUCT} ${packer_file}
         ;;
-    couchbase-serverless*)
-        packer_file="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/couchbase-server-enterprise_${VERSION}-${BLD_NUM}-${PLATFORM}_${ARCH}.deb"
+    couchbase-columnar)
+        PACKER_FILE="couchbase-server.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-columnar-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-columnar/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/gcp
-        download_files
-        create_image ${PRODUCT} ${packer_file}
-        ;;
-    direct-nebula|couchbase-data-api)
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT}_${VERSION}-${BLD_NUM}-linux.${ARCH}.tar.gz"
-        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/gcp
-        download_files
-        create_image ${PRODUCT} ${PRODUCT}.pkr.hcl
         ;;
     couchbase-cloud-sync-gateway)
         ARCH="x86_64"
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.deb"
-        echo "${PRODUCT_PKG_URL}"
+        PACKER_FILE="${PRODUCT}.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.deb"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-sync-gateway/gcp
-        download_files
-        create_image ${PRODUCT} couchbase-sync-gateway.pkr.hcl
         ;;
     *)
         echo "${PRODUCT} is not supported"
         exit -1
         ;;
 esac
+
+download_files
+create_image ${PRODUCT} ${PACKER_FILE}

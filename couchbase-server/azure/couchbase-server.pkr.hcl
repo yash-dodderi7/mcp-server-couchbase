@@ -7,7 +7,7 @@ packer {
   }
 }
 
-variable "product_name" {
+variable "product_pkg_name" {
   type = string
 }
 variable "product_version" {
@@ -126,7 +126,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb"
+    source      = "${var.product_pkg_name}"
   }
 
   provisioner "file" {
@@ -221,8 +221,8 @@ build {
       // Setup ns_server profile
       "${local.nsServerProfileConfig}",
       "export INSTALL_DONT_START_SERVER=1",
-      "sudo -E apt install -y /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
-      "sudo rm /tmp/couchbase-server-enterprise_${var.product_version}-${var.product_bld_num}-${local.platform}_${var.product_arch}.deb",
+      "sudo -E apt install -y /tmp/${var.product_pkg_name}",
+      "sudo rm /tmp/${var.product_pkg_name}",
       // Setup the directory for the TLS certificate and key
       "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",
       "sudo touch /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
