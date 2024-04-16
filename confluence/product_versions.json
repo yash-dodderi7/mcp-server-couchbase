@@ -1,0 +1,6 @@
+{
+    "couchbase-cloud-server": ["7.1.5","7.2.3","7.2.4","7.2.5","7.6.0","7.6.1"],
+    "couchbase-cloud-backup": ["7.1.5","7.2.3","7.2.4","7.2.5","7.6.0","7.6.1"],
+    "couchbase-columnar": ["1.0.0"],
+    "couchbase-cloud-sync-gateway": ["3.1.3", "3.1.5"]
+}

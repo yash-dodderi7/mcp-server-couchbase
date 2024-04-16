@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 
-# Simple script to publish latest Capella images information on Confluence
-# https://hub.internal.couchbase.com/confluence/display/CR/Capella+Images+Information
+'''
+Simple script to publish latest Capella images information on Confluence
+https://hub.internal.couchbase.com/confluence/display/CR/Capella+Images+Information
+
+The script pulls image information in the sandbox environment based on
+product+version combination specified in product_versions.json
+'''
 
 import argparse
 from atlassian import Confluence
 import collections
 import git
+import json
 import logging
+import os
 import re
 import sys
 from airium import Airium
@@ -30,8 +37,11 @@ logger.addHandler(console_handler)
 CONFLUENCE_URL = 'https://hub.internal.couchbase.com/confluence'
 CONFLUENCE_PAGE_ID = 122421617
 CONFLUENCE_PAGE_NAME = 'Capella Images Information'
-IMAGE_TYPES = ['server', 'backup']
 CLOUDS = ['aws', 'azure', 'gcp']
+
+
+def makedict():
+    return collections.defaultdict(makedict)
 
 
 def confluence_session(url, uid, pat):
@@ -43,153 +53,176 @@ def confluence_session(url, uid, pat):
 
 
 def build_confluence_body(images):
-    latest_table = []
-    for version in images:
-        row = [version]
-        for cloud in CLOUDS:
-            row.append(
-                f"{images[version][cloud]['server']['latest']}<br/>"
-                f"{images[version][cloud]['backup']['latest']}<br/>"
-                f"Agent: {images[version][cloud]['server']['latest_sha']}")
-        latest_table.append(row)
-
+    '''
+    Construct a simple html page for confluence upload.
+    '''
     a = Airium(source_minify=True)
     with a.h1():
-        a('couchbase-server')
-    with a.h3():
         a('Latest Images')
-    with a.table():
-        with a.thead().tr():
-            a.th(_t='Version')
-            a.th(_t='AWS')
-            a.th(_t='Azure')
-            a.th(_t='GCP')
-        with a.tbody():
-            for row in latest_table:
-                with a.tr():
-                    for item in row:
-                        a.td(_t=f'{item}')
-    with a.h3():
-        a('Available Images')
-    for version in images:
-        with a.li():
-            a(version)
+    for product in images:
+        with a.h3():
+            a(product)
         with a.table():
             with a.thead().tr():
-                a.th(_t='')
+                a.th(_t='Version')
                 a.th(_t='AWS')
                 a.th(_t='Azure')
                 a.th(_t='GCP')
             with a.tbody():
-                for type in IMAGE_TYPES:
+                for version in images[product]:
                     with a.tr():
-                        a.td(_t=f'couchbase-cloud-{type}')
+                        a.td(_t=f'{version}')
                         a.td(
-                            _t='<br/>'.join(images[version]['aws'][type]['available']))
+                            _t=f"{images[product][version]['aws']['latest']}"
+                            f"<br/>Agent: {images[product][version]['aws']['latest_sha']}")
                         a.td(
-                            _t='<br/>'.join(images[version]['azure'][type]['available']))
+                            _t=f"{images[product][version]['azure']['latest']}"
+                            f"<br/>Agent: {images[product][version]['aws']['latest_sha']}")
                         a.td(
-                            _t='<br/>'.join(images[version]['gcp'][type]['available']))
+                            _t=f"{images[product][version]['gcp']['latest']}"
+                            f"<br/>Agent: {images[product][version]['aws']['latest_sha']}")
 
+    with a.h1():
+        a('Available Images')
+    for product in images:
+        with a.h3():
+            a(product)
+        with a.table():
+            with a.thead().tr():
+                a.th(_t='Version')
+                a.th(_t='AWS')
+                a.th(_t='Azure')
+                a.th(_t='GCP')
+            with a.tbody():
+                for version in images[product]:
+                    with a.tr():
+                        a.td(_t=f'{version}')
+                        a.td(
+                            _t='<br/>'.join(images[product][version]['aws']['available']))
+                        a.td(
+                            _t='<br/>'.join(images[product][version]['azure']['available']))
+                        a.td(
+                            _t='<br/>'.join(images[product][version]['gcp']['available']))
     return str(a)
 
 
-def get_aws_images(aws, version):
+def get_aws_images(aws, product, version):
+    '''
+    Qeury AWS images based on product and version pattern.
+    '''
     images = {}
-    for type in IMAGE_TYPES:
-        images[type] = {}
-        images[type]['available'] = []
-        images[type]['latest_sha'] = ''
-        image_pattern = f'couchbase-cloud-{type}-{version}*-v*'
-        available_images = aws.search_ami_by_pattern(image_pattern)
+    images['available'] = []
+    images['latest_sha'] = ''
+    image_pattern = f'{product}-{version}*-v*'
+    available_images = aws.search_ami_by_pattern(image_pattern)
+    if available_images:
         available_images.sort(key=lambda x: (x['Name']), reverse=True)
         for item in available_images:
-            images[type]['available'].append(item['Name'])
-        images[type]['latest'] = available_images[0]['Name']
+            images['available'].append(item['Name'])
+        images['latest'] = available_images[0]['Name']
         for tag in available_images[0]['Tags']:
             if tag['Key'] == 'agent':
-                images[type]['latest_sha'] = tag['Value']
+                images['latest_sha'] = tag['Value']
+    else:
+        images['latest'] = ''
+        images['latest_sha'] = ''
     return images
 
 
-def get_gcp_images(gcp, version):
+def get_gcp_images(gcp, product, version):
+    '''
+    Qeury GCP images based on product and version pattern.
+    '''
     images = {}
     gcp_version = version.replace('.', '-')
-    for type in IMAGE_TYPES:
-        images[type] = {}
-        images[type]['available'] = []
-        images[type]['latest_sha'] = ''
-        image_pattern = f'couchbase-cloud-{type}-{gcp_version}-*'
-        available_images = list(gcp.search_image_by_pattern(image_pattern))
+    images = {}
+    images['available'] = []
+    images['latest_sha'] = ''
+    image_pattern = f'{product}-{gcp_version}-*'
+    available_images = list(gcp.search_image_by_pattern(image_pattern))
+    if available_images:
         available_images.sort(key=lambda x: (x.name), reverse=True)
         for item in available_images:
-            images[type]['available'].append(item.name)
-        images[type]['latest'] = available_images[0].name
+            images['available'].append(item.name)
+        images['latest'] = available_images[0].name
         if 'agent' in available_images[0].labels:
-            images[type]['latest_sha'] = available_images[0].labels['agent']
+            images['latest_sha'] = available_images[0].labels['agent']
+    else:
+        images['latest'] = ''
+        images['latest_sha'] = ''
     return images
 
 
-def get_azure_images(azure, version):
+def get_azure_images(azure, product, version):
+    '''
+    Qeury Azure images based on product and version pattern.
+    '''
     images = {}
-    for type in IMAGE_TYPES:
-        images[type] = {}
-        images[type]['available'] = []
-        images[type]['latest_sha'] = ''
-        image_pattern = f'^couchbase-cloud-{type}-{version}-v(?!0.0.0)'
-        all_images = azure.get_images('image-factory')
-        available_images = list(
-            filter(
-                lambda x: re.search(
-                    image_pattern,
-                    x.name),
-                all_images))
+    images['available'] = []
+    images['latest_sha'] = ''
+    image_pattern = f'^{product}-{version}-v(?!0.0.0)'
+    all_images = azure.get_images('image-factory')
+    available_images = list(
+        filter(
+            lambda x: re.search(
+                image_pattern,
+                x.name),
+            all_images))
+    if available_images:
         available_images.sort(key=lambda x: (x.name), reverse=True)
         for item in available_images:
-            images[type]['available'].append(item.name)
-        images[type]['latest'] = available_images[0].name
+            images['available'].append(item.name)
+        images['latest'] = available_images[0].name
         if 'agent' in available_images[0].tags:
-            images[type]['latest_sha'] = available_images[0].tags['agent']
+            images['latest_sha'] = available_images[0].tags['agent']
+    else:
+        images['latest'] = ''
+        images['latest_sha'] = ''
     return images
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('Capella Images')
     parser.add_argument(
-        '--versions',
-        type=str,
-        help='Comma separated version list')
-    parser.add_argument(
         '--user',
         type=str,
+        required=True,
         help='Confluence user name')
     parser.add_argument(
         '--pat',
         type=str,
+        required=True,
         help='Confluence user PAT')
     args = parser.parse_args()
 
-    versions = list(args.versions.split(','))
-    aws = AWSUtils()
-    gcp = GCPUtils('sandbox')
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    product_versions = json.loads(
+        open(f'{script_dir}/product_versions.json').read())
+
+    aws_session = AWSUtils()
+    gcp_session = GCPUtils('sandbox')
     azure_vars = get_env_vars('azure', 'sandbox')
     gcp_vars = get_env_vars('gcp', 'sandbox')
     aws_vars = get_env_vars('aws', 'sandbox')
-    azure_vars['CLIENT_SECRET'] = aws.get_secret(
+    azure_vars['CLIENT_SECRET'] = aws_session.get_secret(
         aws_vars['AZURE_CLIENT_SECRET_NAME'])
-    azure = AzureUtils(
+    azure_session = AzureUtils(
         azure_vars['CLIENT_ID'],
         azure_vars['CLIENT_SECRET'],
         azure_vars['TENANT_ID'],
         azure_vars['SUBSCRIPTION_ID'])
-    images = collections.defaultdict(dict)
+    product_images = makedict()
 
-    for version in versions:
-        images[version]['aws'] = get_aws_images(aws, version)
-        images[version]['azure'] = get_azure_images(azure, version)
-        images[version]['gcp'] = get_gcp_images(gcp, version)
+    for product, versions in product_versions.items():
+        for version in versions:
+            product_images[product][version]['aws'] = get_aws_images(
+                aws_session, product, version)
+            product_images[product][version]['azure'] = get_azure_images(
+                azure_session, product, version)
+            product_images[product][version]['gcp'] = get_gcp_images(
+                gcp_session, product, version)
 
-    body = build_confluence_body(images)
+    body = build_confluence_body(product_images)
     confluence_session = confluence_session(
         CONFLUENCE_URL,
         args.user,
