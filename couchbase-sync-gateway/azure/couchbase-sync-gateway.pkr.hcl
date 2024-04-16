@@ -166,8 +166,8 @@ build {
       // Install dependent packages:
       "sudo apt update",
       "sudo apt install -y bzip2 wget rsync",
-      "sudo apt install -y /tmp/${product_pkg_name}",
-      "sudo rm /tmp/${product_pkg_name}",
+      "sudo apt install -y /tmp/${var.product_pkg_name}",
+      "sudo rm /tmp/${var.product_pkg_name}",
       // Remove the default startup config.
       "sudo rm -rf /home/sync_gateway/sync_gateway.json",
       // Replace the config env in the systemd file with the path of the

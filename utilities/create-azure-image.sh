@@ -162,12 +162,12 @@ case ${PRODUCT} in
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/azure
         ;;
     couchbase-cloud-sync-gateway)
-        PACKER_FILE="${PRODUCT}.pkr.hcl"
+        PACKER_FILE="couchbase-sync-gateway.pkr.hcl"
         ARCH="x86_64"
         PRODUCT_PKG_NAME="couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.deb" 
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         echo "${PRODUCT_PKG_URL}"
-        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/azure
+        cd ${WORKSPACE}/cloud-build-tools/couchbase-sync-gateway/azure
         ;;
     *)
         echo "${PRODUCT} is not supported"

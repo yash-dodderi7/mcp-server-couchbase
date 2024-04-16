@@ -145,7 +145,7 @@ case ${PRODUCT} in
         ;;
     couchbase-cloud-sync-gateway)
         ARCH="x86_64"
-        PACKER_FILE="${PRODUCT}.pkr.hcl"
+        PACKER_FILE="couchbase-sync-gateway.pkr.hcl"
         PRODUCT_PKG_NAME="couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.deb"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-sync-gateway/gcp

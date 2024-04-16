@@ -152,10 +152,10 @@ case ${PRODUCT} in
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
         ;;
     couchbase-cloud-sync-gateway)
-        PACKER_FILE="${PRODUCT}.pkr.hcl"
+        PACKER_FILE="couchbase-sync-gateway.pkr.hcl"
         PRODUCT_PKG_NAME="couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.rpm"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
-        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
+        cd ${WORKSPACE}/cloud-build-tools/couchbase-sync-gateway/aws
         ;;
     *)
         echo "${PRODUCT} is not supported"

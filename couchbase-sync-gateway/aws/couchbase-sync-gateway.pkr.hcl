@@ -66,7 +66,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "${var.product_pkg_name"
+    source      = "${var.product_pkg_name}"
   }
 
   provisioner "file" {
