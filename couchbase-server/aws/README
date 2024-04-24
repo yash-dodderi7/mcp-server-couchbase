@@ -1,0 +1,8 @@
+How to build AMI
+1. download couchbase-server rpm. i.e. couchbase-server-enterprise-7.2.5-7565-linux.x86_64.rpm
+2. download agents as:
+   agents/x86_64/dp-agent.gz
+   agents/x86_64/dp-backup.gz
+   agents/x86_64/dp-observer.gz
+3. create .env based on .env.example
+4. AWS_PROFILE=<AWS_PROFILE> packer build couchbase-server.pkr.hcl
