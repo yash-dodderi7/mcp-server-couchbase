@@ -150,3 +150,23 @@ function download_agents {
             --profile dbaas-prod-0001-temp
     done
 }
+
+# Determine the latest available Golang version based on an input version
+# Identify Golang release first, then determine the latest stable version
+# from https://go.dev/dl
+function find_golang_version {
+    input_version=${1}
+    golang_release="$(cut -d "." -f 1 <<< "$input_version")"."$(cut -d "." -f 2 <<< "$input_version")"
+    golang_version=$(curl -s https://go.dev/dl/?mode=json | \
+                     jq -r ".[].version" | \
+                     grep "${golang_release}" | \
+                     sed "s/go//")
+    if [[ -z "${golang_version}" ]]; then
+        golang_version=$(curl -s "https://go.dev/dl/?mode=json&include=all" | \
+                         jq -r ".[].version" | \
+                         grep "${golang_release}" | \
+                         head -1 | \
+                         sed "s/go//")
+    fi
+    echo "${golang_version}"
+}
