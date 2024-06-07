@@ -104,6 +104,11 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
+    source      = "audit-fluent-bit.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
     source      = "agents/${local.product_arch}/sgw-observer.gz"
   }
 
@@ -184,6 +189,7 @@ build {
       "sudo apt-get update",
       "sudo apt-get install -y fluent-bit",
       "sudo mv /tmp/fluent-bit.service /usr/lib/systemd/system/fluent-bit.service",
+      "sudo mv /tmp/audit-fluent-bit.service /usr/lib/systemd/system/audit-fluent-bit.service",
     ]
   }
 }

@@ -97,6 +97,11 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
+    source      = "audit-fluent-bit.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
     source      = "agents/${var.product_arch}/sgw-observer.gz"
   }
 
@@ -141,6 +146,9 @@ build {
       // bootstrap config which will be created by the agent.
       "sudo sed -i -e 's@CONFIG=/home/sync_gateway/sync_gateway.json@CONFIG=/dev/shm/sync_gateway_bootstrap.json@g' /usr/lib/systemd/system/sync_gateway.service",
 
+      "sudo usermod -a -G sync_gateway ec2-user",
+      "sudo chmod 770 /home/sync_gateway/",
+
       // Install and start node exporter
       "sudo wget https://github.com/prometheus/node_exporter/releases/download/v${local.node_exporter_version}/${local.node_exporter_package}.tar.gz -P /tmp/",
       "sudo tar xvfz /tmp/${local.node_exporter_package}.tar.gz -C /home/ec2-user/ --strip-components=1 ${local.node_exporter_package}/node_exporter",
@@ -179,6 +187,7 @@ build {
       "sudo mv /tmp/fluent-bit.repo /etc/yum.repos.d/fluent-bit.repo",
       "sudo yum install -y fluent-bit",
       "sudo mv /tmp/fluent-bit.service /usr/lib/systemd/system/fluent-bit.service",
+      "sudo mv /tmp/audit-fluent-bit.service /usr/lib/systemd/system/audit-fluent-bit.service",
     ]
   }
 }
