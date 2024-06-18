@@ -38,6 +38,7 @@ class AWSUtils:
         response = self.client.describe_images(
             Filters=[
                 {'Name': 'name', 'Values': [name_pattern]},
+                {'Name': 'tag:creator', 'Values': ['build-team']}
             ],
             Owners=['self']
         )
