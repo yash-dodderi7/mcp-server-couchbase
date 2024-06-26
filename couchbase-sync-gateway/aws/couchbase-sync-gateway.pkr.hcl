@@ -7,6 +7,9 @@ variable "product_version" {
 variable "product_bld_num" {
   type = string
 }
+variable "product_arch" {
+  type = string
+}
 variable "ami_name" {
   type = string
 }
@@ -18,10 +21,13 @@ variable "region" {
 }
 
 locals {
-  instance_type = "t2.micro"
   dp_service = "sgw-agent"
-  product_arch = "x86_64"
-  exporter_arch = "amd64"
+  ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
+  source_ami_name = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
+  instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
+  exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
+  process-exporter_version = "0.7.5"
+  process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${local.exporter_arch}"
   node_exporter_version = "1.1.2"
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
 
@@ -36,7 +42,7 @@ source "amazon-ebs" "cc" {
   region        = "${var.region}"
   source_ami_filter {
     filters = {
-      name                = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.product_arch}-gp2"
+      name                = "${local.source_ami_name}"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
     }
@@ -46,14 +52,14 @@ source "amazon-ebs" "cc" {
   tags = {
     owner                = "couchbase-capella"
     creator              = "build-team"
-    arch                 = "${local.product_arch}"
+    arch                 = "${var.product_arch}"
     product_version      = "${var.product_version}"
     version              = "${var.product_version}-${var.product_bld_num}"
   }
   snapshot_tags = {
     owner                = "couchbase-capella"
     creator              = "build-team"
-    arch                 = "${local.product_arch}"
+    arch                 = "${var.product_arch}"
     product_version      = "${var.product_version}"
     version              = "${var.product_version}-${var.product_bld_num}"
   }
@@ -71,7 +77,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "agents/${local.product_arch}/${local.dp_service}.gz"
+    source      = "agents/${var.product_arch}/${local.dp_service}.gz"
   }
 
   provisioner "file" {
@@ -91,7 +97,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "agents/${local.product_arch}/sgw-observer.gz"
+    source      = "agents/${var.product_arch}/sgw-observer.gz"
   }
 
   provisioner "file" {
