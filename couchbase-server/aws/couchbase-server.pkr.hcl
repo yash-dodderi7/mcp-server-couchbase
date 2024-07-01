@@ -229,6 +229,7 @@ build {
       "sudo chown -R ec2-user:ec2-user /home/ec2-user/shoreline",
       "pushd /home/ec2-user/shoreline",
       "curl -L 'https://shorelinedownload.blob.core.windows.net/agent/vm_base_install_0.6.4.sh' -o vm_base_install.sh",
+      "sed -i 's/mirror.centos.org/vault.centos.org/g' vm_base_install.sh",
       "chmod +x vm_base_install.sh",
       "sudo ./vm_base_install.sh",
       // Shoreline start-up is handled by dp-agent. Docker & containerd will start as dependencies once the Shoreline agent starts
