@@ -102,3 +102,32 @@ class AWSUtils:
                         operation: [{'UserId': account_id}]
                     },
                 )
+
+    def release_image(self, ami_name):
+        regions = self.get_regions()
+        for region in regions:
+            client = self.session.client('ec2', region_name=region)
+            response = client.describe_images(
+                Filters=[
+                    {'Name': 'name', 'Values': [ami_name]},
+                    {'Name': 'tag:creator', 'Values': ['build-team']}
+                ],
+                Owners=['self']
+            )
+            if len(response['Images']) != 1:
+                logger.error(
+                    f"{len(response['Images'])} {ami_name} found in {region}."
+                    f'  There should only be one.  These images will not be tagged.'
+                )
+            else:
+                image_id = response['Images'][0]['ImageId']
+                snapshot_id = response['Images'][0]['BlockDeviceMappings'][0]['Ebs']['SnapshotId']
+                client.create_tags(
+                    Resources=[
+                        image_id,
+                        snapshot_id
+                    ],
+                    Tags=[
+                        {'Key': 'released', 'Value': 'true', },
+                    ]
+                )

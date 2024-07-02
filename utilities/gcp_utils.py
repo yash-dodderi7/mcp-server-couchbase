@@ -195,3 +195,17 @@ class GCPUtils:
             filter=f"name:{image_name_pattern}"
         )
         return client.list(request=images_list_request)
+
+    def release_image(self, image):
+        client = compute_v1.ImagesClient(credentials=self.credentials)
+        image_labels = image.labels
+        image_labels['released'] = 'true'
+        set_labels_request_body = {
+            'labels': image_labels,
+            'label_fingerprint': image.label_fingerprint
+        }
+        client.set_labels(
+            project=self.image_factory_project_id,
+            resource=image.name,
+            global_set_labels_request_resource=set_labels_request_body
+        )

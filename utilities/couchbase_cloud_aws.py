@@ -166,7 +166,12 @@ if __name__ == "__main__":
     subparser_get_regoins = subparsers.add_parser(
         'get_regions', help='Get a list of regions that are enabled for an account')
 
-    if len(sys.argv)==1:
+    subparser_release_ami = subparsers.add_parser(
+        'release_ami', help='Add a release tag to an ami after its released')
+    subparser_release_ami.add_argument(
+        '--ami_name', type=str, required=True, help='AMI name')
+
+    if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -225,3 +230,8 @@ if __name__ == "__main__":
         couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
         regions = couchbaseaws.get_regions()
         logger.info(f'{regions}')
+
+    if args.cmd == 'release_ami':
+        aws_profile = os.getenv('AWS_PROFILE')
+        couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
+        couchbaseaws.release_image(args.ami_name)

@@ -18,6 +18,7 @@ if not logger.handlers:
     console_handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(console_handler)
 
+
 def couchbase_azure_session(env):
     azure_vars = common_utils.get_env_vars(
         'azure',
@@ -36,10 +37,12 @@ def couchbase_azure_session(env):
         azure_vars['SUBSCRIPTION_ID'])
     return couchbaseazure
 
+
 def get_regions(env):
     couchbaseazure = couchbase_azure_session(env)
     regions = couchbaseazure.get_regions()
     logger.info(f'{regions}')
+
 
 def delete_image(env, image_name):
     couchbaseazure = couchbase_azure_session(env)
@@ -54,16 +57,19 @@ def delete_image(env, image_name):
         couchbaseazure.delete_image_version(
             resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
 
+
 def create_image_definition(env, image_definition_name):
     couchbaseazure = couchbase_azure_session(env)
     resource_group_name = 'image-factory'
     gallery_name = 'capella'
-    result = couchbaseazure.get_image_definition(resource_group_name, gallery_name, image_definition_name)
+    result = couchbaseazure.get_image_definition(
+        resource_group_name, gallery_name, image_definition_name)
     if result:
-        logger.info(f'Image definition, {image_definition_name}, already exist.  It will not be created again.')
+        logger.info(
+            f'Image definition, {image_definition_name}, already exist.  It will not be created again.')
     else:
         logger.info(f'Creating image definition, {image_definition_name}.')
-        offer = re.sub('-\d+.\d+.\d+', '', image_definition_name)
+        offer = re.sub('-\\d+.\\d+.\\d+', '', image_definition_name)
         image_definition = {}
         image_definition['identifier'] = {}
         image_definition['architecture'] = 'x64'
@@ -74,7 +80,21 @@ def create_image_definition(env, image_definition_name):
         image_definition['identifier']['publisher'] = 'couchbase-capella'
         image_definition['identifier']['offer'] = offer
         image_definition['identifier']['sku'] = image_definition_name
-        couchbaseazure.create_image_definition(resource_group_name, gallery_name, image_definition_name, image_definition)
+        couchbaseazure.create_image_definition(
+            resource_group_name,
+            gallery_name,
+            image_definition_name,
+            image_definition)
+
+
+def release_image(env, image_name):
+    couchbaseazure = couchbase_azure_session(env)
+    resource_group_name = 'image-factory'
+    image_gallery = 'capella'
+    gallery_image_info = image_name.split('-v', 1)
+    gallery_image_name = gallery_image_info[0]
+    gallery_image_version = gallery_image_info[1]
+    couchbaseazure.release_image(resource_group_name, image_name)
 
 
 if __name__ == "__main__":
@@ -99,7 +119,14 @@ if __name__ == "__main__":
     subparser_create_image_definition.add_argument(
         '--image_definition_name', type=str, required=True, help='The name of image definition')
 
-    if len(sys.argv)==1:
+    subparser_release_image = subparsers.add_parser(
+        'release_image', help='Add released tag after an image is released to production')
+    subparser_release_image.add_argument(
+        '--image_name', type=str, required=True, help='Azure image name')
+    subparser_release_image.add_argument(
+        '--env', type=str, required=True, help='Sandbox or stage environment')
+
+    if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -113,3 +140,6 @@ if __name__ == "__main__":
 
     if args.cmd == 'create_image_definition':
         create_image_definition(args.env, args.image_definition_name)
+
+    if args.cmd == 'release_image':
+        release_image(args.env, args.image_name)

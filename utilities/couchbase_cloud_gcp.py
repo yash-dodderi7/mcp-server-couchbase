@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-## Couchbase's Google Cloud Platform(GCP) is accessible via Workload Identity Federation(WIF)
-## through AWS.  https://cloud.google.com/iam/docs/configuring-workload-identity-federation
-## In order to access GCP, the following steps are taken:
-## 1. Obtain GCP encoded GetCallerIdentity token from AWS
-## 2. Use the Security Token Service(STS) API to exchange the credential against a short-lived token
-## 3. Generate an access_token/impersonated access_token from GCP IAM for a service account
+# Couchbase's Google Cloud Platform(GCP) is accessible via Workload Identity Federation(WIF)
+# through AWS.  https://cloud.google.com/iam/docs/configuring-workload-identity-federation
+# In order to access GCP, the following steps are taken:
+# 1. Obtain GCP encoded GetCallerIdentity token from AWS
+# 2. Use the Security Token Service(STS) API to exchange the credential against a short-lived token
+# 3. Generate an access_token/impersonated access_token from GCP IAM for a
+# service account
 
 
 import argparse
@@ -19,18 +20,26 @@ if not logger.handlers:
     console_handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(console_handler)
 
+
 def get_access_token(env):
     gcp = GCPUtils(env)
     logger.info(gcp.access_token_impersonated)
 
+
 def delete_image(env, image_name_pattern):
-    couchbasegcp=GCPUtils(env)
-    images = couchbasegcp.search_image_by_pattern(image_name_pattern)
-    if images is None:
-        logger.info(f"{image_name_pattern} does not exist.  It will not be deleted.")
-    else:
-        for image in images:
-            couchbasegcp.delete_image_by_name(image.name)
+    couchbasegcp = GCPUtils(env)
+    page_result = couchbasegcp.search_image_by_pattern(image_name_pattern)
+    for image in page_result:
+        couchbasegcp.delete_image_by_name(image.name)
+
+
+def release_image(env, image_name):
+    couchbasegcp = GCPUtils(env)
+    image = couchbasegcp.get_image_by_name(image_name)
+    if image is not None:
+        couchbasegcp.release_image(image)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Couchbase GCP Cloud', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
@@ -47,8 +56,14 @@ if __name__ == '__main__':
         '--image_name', type=str, required=True, help='Image name')
     subparser_delete_image.add_argument(
         '--env', type=str, required=True, help='Which environment will the image be deleted from')
+    subparser_release_image = subparsers.add_parser(
+        'release_image', help='Add release label after an image is released to production')
+    subparser_release_image.add_argument(
+        '--image_name', type=str, required=True, help='Image name')
+    subparser_release_image.add_argument(
+        '--env', type=str, required=True, help='Sandbox or stage environment')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -59,3 +74,6 @@ if __name__ == '__main__':
 
     if args.cmd == 'delete_image':
         delete_image(args.env, args.image_name)
+
+    if args.cmd == 'release_image':
+        release_image(args.env, args.image_name)

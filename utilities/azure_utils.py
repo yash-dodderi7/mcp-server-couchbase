@@ -11,6 +11,7 @@ from azure.identity import ClientSecretCredential
 logger = logging.getLogger('azure')
 logger.setLevel(logging.ERROR)
 
+
 class AzureUtils:
     def __init__(self, client_id, client_secret, tenant_id, subscription_id):
         credential = ClientSecretCredential(
@@ -34,7 +35,7 @@ class AzureUtils:
         return regions
 
     def get_gallery(self, resource_group_name, gallery_name):
-        return  self.compute_client.galleries.get(
+        return self.compute_client.galleries.get(
             resource_group_name, gallery_name)
 
     def get_image_definition(
@@ -107,3 +108,18 @@ class AzureUtils:
     def get_images(self, resource_group_name):
         return self.compute_client.images.list_by_resource_group(
             resource_group_name)
+
+    def release_image(self, resource_group_name, image_name):
+        image = self.get_image_by_name(resource_group_name, image_name)
+        if not image:
+            logger.error(f'Unable to locate {image_name}')
+        else:
+            image_tags = image.tags
+            image_tags['released'] = 'true'
+            self.compute_client.images.begin_update(
+                resource_group_name=resource_group_name,
+                image_name=image_name,
+                parameters={
+                    'tags': image_tags
+                }
+            )
