@@ -43,8 +43,7 @@ locals {
   nsServerProfileConfig = can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
 
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
-  neo_source_ami_name = local.ami_arch == "arm64"  ? "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2" : "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
-  source_ami_name = can(regex("7.2", var.product_version)) ? "${local.neo_source_ami_name}" :  "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
+  source_ami_name = "al2023-ami-2023.*-kernel-6.1-${local.ami_arch}"
 
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
   exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
@@ -90,8 +89,11 @@ source "amazon-ebs" "cc" {
 build {
   sources = ["source.amazon-ebs.cc"]
 
+  //Amazon Linux 2023's tmp sits on a different mount < 500MB.
+  //It is not big enough to store couchbase-server rpm.
+  //Hence, store in home directory instead.
   provisioner "file" {
-    destination = "/tmp/"
+    destination = "/home/ec2-user/"
     source      = "${var.product_pkg_name}"
   }
 
@@ -175,15 +177,15 @@ build {
       //     sysstat: iostat, sar, mpstat
       //     net-tools: ifconfig, arp, netstat
       //     numactl: numactl
-      //     ntp: ntpdate, ntpq
-      "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata",
+      //     AWS no longer supports ntp on amazon linux 2023.  chrony should be used instead.
+      "sudo yum install -y iptables lshw lsof net-tools nmap-ncat numactl rsyslog sysstat tzdata",
       // Create couchbase user
       "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Setup ns_server profile
       "${local.nsServerProfileConfig}",
       "export INSTALL_DONT_START_SERVER=1",
-      "sudo -E yum install -y /tmp/${var.product_pkg_name}",
-      "rm /tmp/${var.product_pkg_name}",
+      "sudo -E yum install -y /home/ec2-user/${var.product_pkg_name}",
+      "rm -f /home/ec2-user/${var.product_pkg_name}",
       // Setup the directory for the TLS certificate and key
       "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",
       "sudo touch /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",

@@ -74,8 +74,8 @@ locals {
 
   // server build compiles single linux deb file for Neo and newer.  Ubuntu and Debian packages are merely copies of linux deb file.
   platform = "linux"
-  image_sku = "20_04-lts-gen2"
-  image_offer = "0001-com-ubuntu-server-focal"
+  image_sku = "22_04-lts-gen2"
+  image_offer = "0001-com-ubuntu-server-jammy"
 
   exporter_arch = var.product_arch
   process-exporter_version = "0.7.5"
