@@ -70,7 +70,7 @@ locals {
   source_image = "ubuntu-2004-focal-v20220419"
 
   exporter_arch = var.product_arch
-  process-exporter_version = "0.7.5"
+  process-exporter_version = "0.8.3"
   process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${local.exporter_arch}"
   node_exporter_version = "1.1.2"
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"

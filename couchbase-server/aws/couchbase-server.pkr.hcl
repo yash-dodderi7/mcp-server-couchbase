@@ -48,7 +48,7 @@ locals {
 
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
   exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
-  process-exporter_version = "0.7.5"
+  process-exporter_version = "0.8.3"
   process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${local.exporter_arch}"
   node_exporter_version = "1.1.2"
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
