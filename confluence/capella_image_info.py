@@ -34,8 +34,8 @@ console_handler = logging.StreamHandler(stream=sys.stdout)
 logger.addHandler(console_handler)
 
 
-CONFLUENCE_URL = 'https://hub.internal.couchbase.com/confluence'
-CONFLUENCE_PAGE_ID = 122421617
+CONFLUENCE_URL = 'https://couchbasecloud.atlassian.net'
+CONFLUENCE_PAGE_ID = 2405410007
 CONFLUENCE_PAGE_NAME = 'Capella Images Information'
 CLOUDS = ['aws', 'azure', 'gcp']
 
@@ -44,13 +44,19 @@ def makedict():
     return collections.defaultdict(makedict)
 
 
-def confluence_session(url, uid, pat):
+def confluence_session():
+    '''
+    Initiate a confluence session.
+    Cloud Jira and Confluence share the same set of users
+    '''
+    cloud_jira_creds_file = f'{os.environ["HOME"]}/.ssh/cloud-jira-creds.json'
+    cloud_jira_creds = json.loads(open(cloud_jira_creds_file).read())
     session = Confluence(
-        url=url,
-        username=uid,
-        password=pat)
+        url=CONFLUENCE_URL,
+        username=f"{cloud_jira_creds['username']}",
+        password=f"{cloud_jira_creds['apitoken']}",
+        cloud=True)
     return session
-
 
 def build_confluence_body(images):
     '''
@@ -223,10 +229,7 @@ if __name__ == "__main__":
                 gcp_session, product, version)
 
     body = build_confluence_body(product_images)
-    confluence_session = confluence_session(
-        CONFLUENCE_URL,
-        args.user,
-        args.pat)
+    confluence_session = confluence_session()
     confluence_session.update_page(
         CONFLUENCE_PAGE_ID,
         CONFLUENCE_PAGE_NAME,
