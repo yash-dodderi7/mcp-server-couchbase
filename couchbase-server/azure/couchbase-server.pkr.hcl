@@ -254,9 +254,9 @@ build {
       "sudo systemctl enable ${var.dp_service}.service",
       // Install firewall service
       "sudo mv /tmp/dp-firewall.service /lib/systemd/system/dp-firewall.service",
-      "sudo mv /tmp/iptables-firewall.sh /usr/local/bin",
-      "sudo chmod +x /usr/local/bin/iptables-firewall.sh",
-      "sudo chown root:root /usr/local/bin/iptables-firewall.sh",
+      "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",
+      "sudo chmod +x /home/ec2-user/iptables-firewall.sh",
+      "sudo chown root:root /home/ec2-user/iptables-firewall.sh",
       "sudo systemctl start dp-firewall.service",
       "sudo systemctl enable dp-firewall.service",
       // Add imports directory

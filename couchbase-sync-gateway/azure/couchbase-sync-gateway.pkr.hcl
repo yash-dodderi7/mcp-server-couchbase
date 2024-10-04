@@ -199,9 +199,9 @@ build {
 
       // Install firewall service
       "sudo mv /tmp/sgw-firewall.service /lib/systemd/system/sgw-firewall.service",
-      "sudo mv /tmp/iptables-firewall.sh /usr/local/bin",
-      "sudo chmod +x /usr/local/bin/iptables-firewall.sh",
-      "sudo chown root:root /usr/local/bin/iptables-firewall.sh",
+      "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",
+      "sudo chmod +x /home/ec2-user/iptables-firewall.sh",
+      "sudo chown root:root /home/ec2-user/iptables-firewall.sh",
       "sudo systemctl start sgw-firewall.service",
       "sudo systemctl enable sgw-firewall.service",
       // Add sync_gateway user to systemd-journal group
