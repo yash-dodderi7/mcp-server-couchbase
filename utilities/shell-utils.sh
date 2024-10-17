@@ -137,7 +137,7 @@ function download_agents {
     dp_arch=${2}
     cloud=${3}
     mkdir -p agents/${arch}
-    for agent in dp-observer dp-agent dp-backup; do
+    for agent in dp-observer dp-backup dp-agent; do
         aws s3 cp --quiet \
             s3://cbc-internal-release/releases/${agent}/latest . \
             --profile dbaas-prod-0001-temp
