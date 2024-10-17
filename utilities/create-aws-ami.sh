@@ -1,5 +1,5 @@
 #!/bin/bash -e
-
+set -x
 function usage
 {
     echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -a <AMI Name> -c <AWS Config File> -s <AWS Shared Credentials File>"
@@ -47,17 +47,9 @@ EOT
 
     #packer variables specific for couchbase-server
     case ${PRODUCT} in
-        couchbase-serverless-server*)
-            echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-           ;;
         couchbase-columnar)
             echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-           ;;
-        couchbase-serverless-backup*)
-            echo "export PKR_VAR_ns_server_profile=serverless" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-server*)
             echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
@@ -83,7 +75,7 @@ EOT
         AWS_PROFILE=${AWS_PROFILE} packer build ${PACKER_FILE} || { echo "Failed to create AMI ${AMI_NAME}" ; exit 1; }
         # Keep a list of IMAGES created.
         # It is currently used to determinie if we should trigger qe-jenkins sanity_tests
-        echo "${IMAGE_NAME}" >> ${WORKSPACE}/IMAGES_CREATED
+        echo "${AMI_NAME}" >> ${WORKSPACE}/IMAGES_CREATED
     else
         echo "${AMI_NAME} already exist on ${AWS_PROFILE}"
     fi
@@ -133,7 +125,7 @@ fi
 #       couchbase-data-api
 
 case ${PRODUCT} in
-    couchbase-cloud-server|couchbase-cloud-backup|couchbase-serverless*)
+    couchbase-cloud-server|couchbase-cloud-backup)
         PACKER_FILE="couchbase-server.pkr.hcl"
         PRODUCT_PKG_NAME="couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
@@ -141,13 +133,13 @@ case ${PRODUCT} in
         ;;
     couchbase-columnar)
         PACKER_FILE="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_NAME="couchbase-columnar-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-columnar/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
+        PRODUCT_PKG_NAME="${PRODUCT}-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         ;;
-    direct-nebula|couchbase-data-api)
+    ai-gateway)
         PACKER_FILE="${PRODUCT}.pkr.hcl"
-        PRODUCT_PKG_NAME="${PRODUCT}_${VERSION}-${BLD_NUM}-linux.${ARCH}.tar.gz"
+        PRODUCT_PKG_NAME="${PRODUCT}-${VERSION}-${BLD_NUM}-linux-${ARCH}.gz"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
         ;;
