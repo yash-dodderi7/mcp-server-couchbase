@@ -151,11 +151,6 @@ build {
    source = "dp-firewall.service"
   }
 
-  provisioner "file" {
-    destination = "/tmp/agent.config"
-    source = "shoreline.agent.config"
-  }
-
   provisioner "shell" {
     inline = [
       "sleep 10",
@@ -176,7 +171,7 @@ build {
       //     net-tools: ifconfig, arp, netstat
       //     numactl: numactl
       //     ntp: ntpdate, ntpq
-      "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata",
+      "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata jq",
       // Create couchbase user
       "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Setup ns_server profile
@@ -223,24 +218,6 @@ build {
       // Add imports directory
       "sudo mkdir -p /home/ec2-user/imports",
       "sudo chown ec2-user:ec2-user /home/ec2-user/imports",
-      // Install the Shoreline agent
-      "sudo mkdir -p /home/ec2-user/shoreline",
-      "sudo mv /tmp/agent.config /home/ec2-user/shoreline",
-      "sudo chown -R ec2-user:ec2-user /home/ec2-user/shoreline",
-      "pushd /home/ec2-user/shoreline",
-      "curl -L 'https://shorelinedownload.blob.core.windows.net/agent/vm_base_install_0.6.4.sh' -o vm_base_install.sh",
-      "sed -i 's/mirror.centos.org/vault.centos.org/g' vm_base_install.sh",
-      "chmod +x vm_base_install.sh",
-      "sudo ./vm_base_install.sh",
-      // Shoreline start-up is handled by dp-agent. Docker & containerd will start as dependencies once the Shoreline agent starts
-      "sudo systemctl disable shoreline.shoreline.service shoreline.node_exporter.service",
-      // Create the Shoreline secrets directory, allowing dp-agent to bootstrap it
-      "sudo mkdir -p /var/lib/shoreline/agent/secrets",
-      "sudo chown shoreline:shoreline /var/lib/shoreline/agent/secrets",
-      // Prevent the agent startup script from printing secrets to the system log
-      "sudo sed -i 's/^set -o xtrace/#set -o xtrace/g' /usr/bin/shoreline-agent",
-      // Install jq to enable Shoreline users to format and manipulate API output
-      "sudo yum install -y jq",
       // Setup Rsyslog conf for dp-backup
       "${local.useDPBackupConf}",
       // Install & configure dp-observer
