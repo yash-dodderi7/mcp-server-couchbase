@@ -2,22 +2,22 @@
 
 '''
 Simple script to publish latest Capella images information on Confluence
-https://hub.internal.couchbase.com/confluence/display/CR/Capella+Images+Information
+https://confluence.issues.couchbase.com/wiki/spaces/CR/pages/2405410007/Capella+Images+Information
 
 The script pulls image information in the sandbox environment based on
 product+version combination specified in product_versions.json
 '''
 
 import argparse
-from atlassian import Confluence
 import collections
-import git
 import json
 import logging
 import os
 import re
 import sys
+import git
 from airium import Airium
+from atlassian import Confluence
 
 git_repo = git.Repo(__file__, search_parent_directories=True)
 git_root = git_repo.git.rev_parse('--show-toplevel')
@@ -63,8 +63,13 @@ def build_confluence_body(images):
     Construct a simple html page for confluence upload.
     '''
     a = Airium(source_minify=True)
+    a('<p><ac:structured-macro ac:name="excerpt-include" ac:schema-version="1" ac:macro-id="68b1d163-a68f-4e63-aa86-936b6da49b73">')
+    a('<ac:parameter ac:name=""><ac:link><ri:page ri:content-title="Capella Released Images"/></ac:link></ac:parameter>')
+    a('<ac:parameter ac:name="name">references_to_capella_image_code</ac:parameter>')
+    a('<ac:parameter ac:name="nopanel">true</ac:parameter></ac:structured-macro></p>')
+
     with a.h1():
-        a('Latest Images')
+        a('Images of Recent and Active Releases')
     for product in images:
         with a.h3():
             a(product)
@@ -228,12 +233,12 @@ if __name__ == "__main__":
             product_images[product][version]['gcp'] = get_gcp_images(
                 gcp_session, product, version)
 
-    body = build_confluence_body(product_images)
+    BODY = build_confluence_body(product_images)
     confluence_session = confluence_session()
     confluence_session.update_page(
         CONFLUENCE_PAGE_ID,
         CONFLUENCE_PAGE_NAME,
-        body,
+        BODY,
         parent_id=None,
         type="page",
         representation="storage",
