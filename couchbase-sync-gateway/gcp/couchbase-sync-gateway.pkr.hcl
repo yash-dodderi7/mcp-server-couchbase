@@ -175,7 +175,7 @@ build {
 
       // Install firewall service
       "sudo mv /tmp/sgw-firewall.service /lib/systemd/system/sgw-firewall.service",
-      "sudo mv /tmp/iptables-firewall.sh /home/ec2-usr",
+      "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",
       "sudo chmod +x /home/ec2-user/iptables-firewall.sh",
       "sudo chown root:root /home/ec2-user/iptables-firewall.sh",
       "sudo systemctl start sgw-firewall.service",
