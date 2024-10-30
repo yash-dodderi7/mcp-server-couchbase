@@ -22,7 +22,7 @@ variable "agent_sha" {
 
 locals {
   product = "ai-gateway"
-  product_pkg_name = "${local.product}-${var.product_version}-${var.product_bld_num}-linux-${var.product_arch}.gz"
+  product_pkg_name = "${local.product}-${var.product_version}-${var.product_bld_num}-linux-${var.product_arch}"
   ami_arch = var.product_arch == "amd64" ? "x86_64" : "arm64"
   source_ami_name = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
 
@@ -72,7 +72,7 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "${local.product_pkg_name}"
+    source      = "${local.product_pkg_name}.gz"
   }
 
   provisioner "file" {
@@ -149,8 +149,10 @@ build {
       "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Install and enable ai-gateway
       "sudo mv /tmp/${local.product}.service /lib/systemd/system/${local.product}.service",
-      "sudo mv /tmp/${local.product_pkg_name} /home/ec2-user",
-      "sudo gunzip /home/ec2-user/${local.product_pkg_name}",
+      "sudo mv /tmp/${local.product_pkg_name}.gz /home/ec2-user",
+      "sudo gunzip /home/ec2-user/${local.product_pkg_name}.gz",
+      "sudo chmod +x /home/ec2-user/${local.product_pkg_name}",
+      "sudo ln -s /home/ec2-user/${local.product_pkg_name} /home/ec2-user/${local.product}",
       "sudo systemctl enable ${local.product}.service",
       // Install firewall service
       "sudo mv /tmp/dp-firewall.service /lib/systemd/system/dp-firewall.service",
