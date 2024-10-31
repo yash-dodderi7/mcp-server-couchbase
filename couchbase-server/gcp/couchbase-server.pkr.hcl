@@ -28,9 +28,6 @@ variable "image_name" {
 variable "image_version" {
   type = string
 }
-variable "zone" {
-  type = string
-}
 
 variable "dp_service" {
   type = string
@@ -65,9 +62,14 @@ locals {
   // configure ns_server profile
   nsServerProfileConfig = can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
 
-  // server build compiles single linux deb file for Neo and newer.  Ubuntu and Debian packages are merely copies of linux deb file.
+  // arm64 and amd64 specific settings
+  //   pd-standard is the default.  It is not compatible with arm64
+  //   arm64 is currently not available in us-central1-a
   platform = "linux"
-  source_image = "ubuntu-2004-focal-v20220419"
+  disk_type = var.product_arch == "amd64" ? "pd-standard" : "hyperdisk-balanced"
+  source_image = var.product_arch == "amd64" ? "ubuntu-2004-focal-v20220419" : "ubuntu-2004-focal-arm64-v20241016"
+  machine_type = var.product_arch == "amd64" ? "n2-standard-2" : "c4a-standard-1"
+  zone = var.product_arch == "amd64" ? "us-central1-a" : "us-east4-b"
 
   exporter_arch = var.product_arch
   process-exporter_version = "0.8.3"
@@ -79,13 +81,14 @@ locals {
 source "googlecompute" "cc" {
   access_token = "${var.access_token}"
   project_id = "${var.project_id}"
+  machine_type = "${local.machine_type}"
   source_image = "${local.source_image}"
-  zone = "${var.zone}"
+  zone = "${local.zone}"
+  disk_type = "${local.disk_type}"
   disk_size = 10
   // both network and subnetwork name are identicial.
   network = "${var.network_id}"
   subnetwork = "${var.network_id}"
-  machine_type = "n2-standard-2"
 
   ssh_username = "ec2-user"
   image_name = "${var.image_name}"

@@ -2,13 +2,14 @@
 
 function usage
 {
-    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -e <environment>-i <Image Factory Project ID>"
-    echo "  -p Product:  direct-nabula|couchbase-data-api"
-    echo "  -r RELEASE: elixir"
-    echo "  -v Version: i.e. 7.5.0, 3.1.0"
+    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -e <environment> -i <Image Factory Project ID> -a <ARCH>"
+    echo "  -p Product:  i.e. couchbase-server"
+    echo "  -r RELEASE: trinity"
+    echo "  -v Version: i.e. 7.6.4"
     echo "  -b Build Number: i.e. 123"
     echo "  -e Environment: test|nonprod|prod"
     echo "  -i Image Factory Project ID"
+    echo "  -a Image arch, defaults amd64 if not specified"
     exit 1
 }
 
@@ -40,7 +41,6 @@ export PKR_VAR_product_bld_num=${BLD_NUM}
 export PKR_VAR_product_arch=${ARCH}
 export PKR_VAR_image_name=${IMAGE_NAME}
 export PKR_VAR_image_version=${IMAGE_VERSION}
-export PKR_VAR_zone=${ZONE}
 export PKR_VAR_project_id=${IMAGE_FACTORY_PROJECT_ID}
 export PKR_VAR_network_id=$(echo ${IMAGE_FACTORY_PROJECT_ID}|sed 's/rcif-/image-factory-vpc-/g')
 export PKR_VAR_access_token=$(cat ${WORKSPACE}/cloud-build-tools/utilities/.gcp/${ENV})
@@ -90,12 +90,13 @@ EOT
 ARCH="amd64"
 DP_REVISION=1
 PLATFORM="linux"
-ZONE="us-central1-a"
 AGENT_SHA="latest"
 
-while getopts b:d:e:g:i:o:p:r:v: opt
+while getopts a:b:d:e:g:i:o:p:r:v: opt
 do
     case ${opt} in
+        a) ARCH=${OPTARG}
+           ;;
         o) IMAGE_NAME_OVERWRITE=${OPTARG}
            ;;
         p) PRODUCT=${OPTARG}
