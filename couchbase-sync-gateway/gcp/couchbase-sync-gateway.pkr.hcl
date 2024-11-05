@@ -22,26 +22,21 @@ variable "image_name" {
 variable "image_version" {
   type = string
 }
-variable "zone" {
-  type = string
-}
-
 variable "project_id" {
   type = string
 }
-
 variable "network_id" {
   type = string
 }
-
 variable "access_token" {
   type = string
 }
 
 locals {
-  source_image = "ubuntu-2004-focal-v20220419" 
+  source_image = "ubuntu-2004-focal-v20220419"
   dp_service = "sgw-agent"
   product_arch = "x86_64"
+  zone = "us-central1-a"
   exporter_arch = "amd64"
   node_exporter_version = "1.1.2"
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
@@ -54,7 +49,7 @@ source "googlecompute" "cc" {
   access_token = "${var.access_token}"
   project_id = "${var.project_id}"
   source_image = "${local.source_image}"
-  zone = "${var.zone}"
+  zone = "${local.zone}"
   disk_size = 10
   // both network and subnetwork name are identicial.
   network = "${var.network_id}"
