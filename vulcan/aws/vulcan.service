@@ -1,0 +1,21 @@
+[Unit]
+Description=Capella Model Agent Monitor for Language Model Hosting Nodes in Capella
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+LimitNOFILE=1024
+
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+
+ExecStart=/bin/bash -c "cd /home/ubuntu/vulcan; source /home/ubuntu/.venv/bin/activate; uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080"
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=vulcan
+
+[Install]
+WantedBy=graphical.target

@@ -143,6 +143,12 @@ case ${PRODUCT} in
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
         ;;
+    vulcan)
+        PACKER_FILE="${PRODUCT}.pkr.hcl"
+        PRODUCT_PKG_NAME="${PRODUCT}-${VERSION}-${BLD_NUM}-${ARCH}.tar.gz"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
+        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
+        ;;
     couchbase-cloud-sync-gateway)
         PACKER_FILE="couchbase-sync-gateway.pkr.hcl"
         PRODUCT_PKG_NAME="couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.rpm"
