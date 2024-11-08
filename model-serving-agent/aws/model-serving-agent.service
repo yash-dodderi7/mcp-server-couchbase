@@ -1,0 +1,23 @@
+[Unit]
+Description=Capella Model Agent Monitor for Language Model Hosting Nodes in Capella
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+LimitNOFILE=1024
+
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+
+WorkingDirectory=/home/ec2-user
+ExecStart=/home/ec2-user/model-serving-agent
+PermissionsStartOnly=true
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=modelservingagent
+
+[Install]
+WantedBy=graphical.target

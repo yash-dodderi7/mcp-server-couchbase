@@ -137,7 +137,7 @@ case ${PRODUCT} in
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         ;;
-    ai-gateway)
+    ai-gateway|model-serving-agent)
         PACKER_FILE="${PRODUCT}.pkr.hcl"
         PRODUCT_PKG_NAME="${PRODUCT}-${VERSION}-${BLD_NUM}-linux-${ARCH}.gz"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
