@@ -152,7 +152,7 @@ build {
       "sudo mv /tmp/${local.product_pkg_name}.gz /home/ec2-user",
       "sudo gunzip /home/ec2-user/${local.product_pkg_name}.gz",
       "sudo chmod +x /home/ec2-user/${local.product_pkg_name}",
-      "sudo ln -s /home/ec2-user/${local.product_pkg_name} /home/ec2-user/${local.product}",
+      "ln -s /home/ec2-user/${local.product_pkg_name} /home/ec2-user/${local.product} && chmod 755 /home/ec2-user/ai-gateway",
       "sudo systemctl enable ${local.product}.service",
       // Install firewall service
       "sudo mv /tmp/dp-firewall.service /lib/systemd/system/dp-firewall.service",
