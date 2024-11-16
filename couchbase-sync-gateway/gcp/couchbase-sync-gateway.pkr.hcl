@@ -33,7 +33,7 @@ variable "access_token" {
 }
 
 locals {
-  source_image = "ubuntu-2004-focal-v20220419"
+  source_image_family = "ubuntu-2004-lts"
   dp_service = "sgw-agent"
   product_arch = "x86_64"
   zone = "us-central1-a"
@@ -48,7 +48,7 @@ locals {
 source "googlecompute" "cc" {
   access_token = "${var.access_token}"
   project_id = "${var.project_id}"
-  source_image = "${local.source_image}"
+  source_image_family = "${local.source_image_family}"
   zone = "${local.zone}"
   disk_size = 10
   // both network and subnetwork name are identicial.

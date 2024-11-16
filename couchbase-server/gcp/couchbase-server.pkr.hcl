@@ -67,7 +67,7 @@ locals {
   //   arm64 is currently not available in us-central1-a
   platform = "linux"
   disk_type = var.product_arch == "amd64" ? "pd-standard" : "hyperdisk-balanced"
-  source_image = var.product_arch == "amd64" ? "ubuntu-2004-focal-v20220419" : "ubuntu-2004-focal-arm64-v20241016"
+  source_image_family = var.product_arch == "amd64" ? "ubuntu-2004-lts" : "ubuntu-2004-lts-arm64"
   machine_type = var.product_arch == "amd64" ? "n2-standard-2" : "c4a-standard-1"
   zone = var.product_arch == "amd64" ? "us-central1-a" : "us-east4-b"
 
@@ -82,7 +82,7 @@ source "googlecompute" "cc" {
   access_token = "${var.access_token}"
   project_id = "${var.project_id}"
   machine_type = "${local.machine_type}"
-  source_image = "${local.source_image}"
+  source_image_family = "${local.source_image_family}"
   zone = "${local.zone}"
   disk_type = "${local.disk_type}"
   disk_size = 10
