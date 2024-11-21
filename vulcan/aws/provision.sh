@@ -10,10 +10,9 @@
   # Install and enable vulcan
   mkdir /home/ubuntu/vulcan & tar xvfz /tmp/vulcan.tar.gz -C /home/ubuntu/vulcan --strip-components=1
   rm -f /tmp/vulcan.tar.gz
-  uv venv --python 3.11.10
+  uv venv --python 3.11 --python-preference only-managed
   source .venv/bin/activate
-  curl -LO https://bootstrap.pypa.io/get-pip.py
-  python get-pip.py
+  python -m ensurepip --upgrade --default-pip
   pip install /home/ubuntu/vulcan/vulcan*.whl
   pip install -r /home/ubuntu/vulcan/backend/requirements.txt
   pip install unstructured[all-docs]
