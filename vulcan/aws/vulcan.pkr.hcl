@@ -25,12 +25,18 @@ variable "product_arch" {
   type = string
 }
 
+variable "agent_sha" {
+  type = string
+}
+
 locals {
   product = "vulcan"
   product_pkg_name = "${local.product}-${var.product_version}-${var.product_bld_num}-${var.product_arch}"
   source_ami_name = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server*"
   //unstructured requires a lot of memory during installation, hence t2.medium instead of t2.micro
   instance_type = var.product_arch == "arm64" ? "t4g.medium" : "t2.medium"
+  process_exporter_version = "0.8.3"
+  node_exporter_version = "1.1.2"
 }
 
 source "amazon-ebs" "cc" {
@@ -56,12 +62,14 @@ source "amazon-ebs" "cc" {
     creator       = "build-team"
     arch          = "${var.product_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
+    agent         = "${var.agent_sha}"
   }
   snapshot_tags = {
     owner         = "couchbase-capella"
     creator       = "build-team"
     arch          = "${var.product_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
+    agent         = "${var.agent_sha}"
   }
   ssh_username = "ubuntu"
 }
@@ -86,8 +94,34 @@ build {
     source = "${local.product}.service"
   }
 
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "agents/${var.product_arch}/dp-observer.gz"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "dp-observer.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "node-exporter.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "process-exporter.service"
+  }
+
   provisioner "shell" {
     pause_before = "5s"
+    environment_vars = [
+      "process_exporter_version=${local.process_exporter_version}",
+      "process_exporter_package=process-exporter_${local.process_exporter_version}_linux_${var.product_arch}",
+      "node_exporter_version=${local.node_exporter_version}",
+      "node_exporter_package=node_exporter-${local.node_exporter_version}.linux-${var.product_arch}"
+    ]
     script = "provision.sh"
   }
 }

@@ -72,6 +72,7 @@ EOT
         --output text)
     if [[ -z $check_image ]]; then
         echo "Creating ${AMI_NAME}..."
+        packer init ${PACKER_FILE} || { echo "Failed to initiate ${PACKER_FILE}" ; exit 1; }
         AWS_PROFILE=${AWS_PROFILE} packer build ${PACKER_FILE} || { echo "Failed to create AMI ${AMI_NAME}" ; exit 1; }
         # Keep a list of IMAGES created.
         # It is currently used to determinie if we should trigger qe-jenkins sanity_tests
