@@ -18,14 +18,11 @@ RestartSec=10
 
 WorkingDirectory=/home/ec2-user
 ExecStart=/home/ec2-user/sgw-observer
-
-# make sure log directory exists and owned by syslog
 PermissionsStartOnly=true
-ExecStartPre=/usr/bin/mkdir -p /var/log/sgw-observer
-ExecStartPre=/usr/bin/chmod 755 /var/log/sgw-observer
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=sgwobserver
+
+# log with journald
+StandardError=journal
+StandardOutput=journal
 
 [Install]
 WantedBy=graphical.target

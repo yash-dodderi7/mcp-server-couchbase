@@ -14,14 +14,11 @@ startLimitIntervalSec=60
 
 WorkingDirectory=/home/ec2-user
 ExecStart=/home/ec2-user/sgw-agent
-
-# make sure log directory exists and owned by syslog
 PermissionsStartOnly=true
-ExecStartPre=/usr/bin/mkdir -p /var/log/sgw-agent
-ExecStartPre=/usr/bin/chmod 755 /var/log/sgw-agent
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=sgwagent
+
+# log with journald
+StandardError=journal
+StandardOutput=journal
 
 [Install]
 WantedBy=graphical.target

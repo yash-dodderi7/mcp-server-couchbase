@@ -16,14 +16,11 @@ RestartSec=10
 
 WorkingDirectory=/home/ec2-user
 ExecStart=/home/ec2-user/dp-observer
-
-# make sure log directory exists and owned by syslog
 PermissionsStartOnly=true
-ExecStartPre=/usr/bin/mkdir -p /var/log/dp-observer
-ExecStartPre=/usr/bin/chmod 755 /var/log/dp-observer
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=dpobserver
+
+# log with journald
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=graphical.target
