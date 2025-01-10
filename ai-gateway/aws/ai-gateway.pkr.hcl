@@ -77,16 +77,6 @@ build {
 
   provisioner "file" {
     destination = "/tmp/"
-    source      = "agents/${var.product_arch}/dp-agent.gz"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "dp-agent.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
     source      = "agents/${var.product_arch}/dp-observer.gz"
   }
 
@@ -161,10 +151,6 @@ build {
       "sudo chown root:root /home/ec2-user/iptables-firewall.sh",
       "sudo systemctl start dp-firewall.service",
       "sudo systemctl enable dp-firewall.service",
-      // Install and enable dp-agent
-      "sudo mv /tmp/dp-agent.service /lib/systemd/system/dp-agent.service",
-      "sudo mv /tmp/dp-agent.gz /home/ec2-user && sudo gunzip /home/ec2-user/dp-agent.gz",
-      "sudo chmod +x /home/ec2-user/dp-agent && sudo systemctl enable dp-agent.service",
       // install & enable dp-observer
       "sudo mv /tmp/dp-observer.service /lib/systemd/system/dp-observer.service",
       "sudo mv /tmp/dp-observer.gz /home/ec2-user && sudo gunzip /home/ec2-user/dp-observer.gz",
