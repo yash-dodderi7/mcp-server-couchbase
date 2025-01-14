@@ -141,6 +141,7 @@ build {
       "sudo mv /tmp/${local.product}.service /lib/systemd/system/${local.product}.service",
       "sudo mv /tmp/${local.product_pkg_name}.gz /home/ec2-user",
       "sudo gunzip /home/ec2-user/${local.product_pkg_name}.gz",
+      "echo ${var.product_version}-${var.product_bld_num} > /home/ec2-user/version.txt",
       "sudo chmod +x /home/ec2-user/${local.product_pkg_name}",
       "ln -s /home/ec2-user/${local.product_pkg_name} /home/ec2-user/${local.product} && chmod 755 /home/ec2-user/ai-gateway",
       "sudo systemctl enable ${local.product}.service",
