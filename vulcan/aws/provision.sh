@@ -8,6 +8,9 @@
   sudo pip install uv
   sudo apt install -y libreoffice
 
+  # Create couchbase user
+  sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user
+
   # Install and start node exporter
   wget https://github.com/prometheus/node_exporter/releases/download/v${node_exporter_version}/${node_exporter_package}.tar.gz -P /tmp/
   tar xvfz /tmp/${node_exporter_package}.tar.gz -C /home/ubuntu/ --strip-components=1 ${node_exporter_package}/node_exporter
