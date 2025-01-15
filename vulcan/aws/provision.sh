@@ -37,7 +37,7 @@
   python -m ensurepip --upgrade --default-pip
   pip install /home/ubuntu/vulcan/vulcan*.whl
   pip install -r /home/ubuntu/vulcan/backend/requirements.txt
-  pip install unstructured[all-docs]
+  pip install "unstructured[all-docs]==0.16.12"
   pip install python-magic spacy
   pip install pyopenssl --upgrade
   python -m spacy download en_core_web_lg
