@@ -2,18 +2,14 @@
 
 function usage
 {
-    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -c <Client ID> -s <Client Secret> -i <Subscription ID> -t <Tenant ID> -o <CLUSTER_RELEASE_VERSION>"
+    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -o <CLUSTER_RELEASE_VERSION>"
     echo "  -p Product:  direct-nabula|couchbase-data-api"
     echo "  -r RELEASE: elixir"
     echo "  -v Version: i.e. 7.5.0, 3.1.0"
     echo "  -b Build Number: i.e. 123"
-    echo "  -c Client ID"
-    echo "  -s Client Secret"
-    echo "  -i Subscription ID"
-    echo "  -t Tenant ID"
     echo "  -o CLUSTER_RELEASE_VERSION"
     echo "  optional:"
-    echo "  -g SHA that agent is built from"
+    echo "  -a SHA that agent is built from"
     echo "  -w custom image name"
     exit 1
 }
@@ -75,12 +71,9 @@ EOT
     source .env-${IMAGE_NAME}-${ARCH}-${SUBSCRIPTION_ID}
     echo "checking ${IMAGE_NAME}"
 
-    # When secret starts with "-", "-p ${CLIENT_SECRET}" will failure.
-    # Hence "-p=${CLIENT_SECRET}" is used instead.
-    az login --service-principal -u ${CLIENT_ID} -p=${CLIENT_SECRET} --tenant ${TENANT_ID}
-    check_image=$(az image show --name ${IMAGE_NAME} \
-        --resource-group ${RESOURCE_GROUP})
-    if [[ -z ${check_image} ]]; then
+    check_image=$(python3 ${SCRIPT_DIR}/couchbase_cloud_azure.py get_image --env ${ENV} --image_name ${IMAGE_NAME})
+
+    if [[ ${check_image} == "None" ]]; then
         echo "Creating ${IMAGE_NAME}..."
         packer init ${PACKER_FILE} || { echo "Failed to initiate ${PACKER_FILE}" ; exit 1; }
         packer build ${PACKER_FILE} || { echo "Failed to create IMAGE ${IMAGE_NAME}" ; exit 1; }
@@ -95,6 +88,8 @@ EOT
 
 #Main
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 #default config
 ARCH="amd64"
 AGENT_SHA="latest"
@@ -102,9 +97,8 @@ RESOURCE_GROUP="image-factory"
 GALLERY_NAME="capella"
 PLATFORM="linux"
 REGION="eastus"
-REPLICATION_REGIONS='["australiaeast", "brazilsouth", "centralindia", "centralus", "canadacentral", "eastasia", "eastus", "eastus2", "francecentral", "germanywestcentral", "swedencentral", "japaneast", "koreacentral", "northeurope", "norwayeast", "southeastasia", "southcentralus", "switzerlandnorth", "uaenorth", "uksouth", "westeurope", "westus2", "westus3"]'
 
-while getopts p:r:v:b:c:g:s:i:t:o:w: opt
+while getopts p:r:v:b:a:o:w: opt
 do
     case ${opt} in
         o) CLUSTER_RELEASE_VERSION=${OPTARG}
@@ -119,26 +113,26 @@ do
            ;;
         b) BLD_NUM=${OPTARG}
            ;;
-        c) CLIENT_ID=${OPTARG}
-           ;;
-        g) AGENT_SHA=${OPTARG}
-           ;;
-        s) CLIENT_SECRET=${OPTARG}
-           ;;
-        i) SUBSCRIPTION_ID=${OPTARG}
-           ;;
-        t) TENANT_ID=${OPTARG}
+        a) AGENT_SHA=${OPTARG}
            ;;
         *) usage
            ;;
     esac
 done
 
-if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${CLIENT_ID} ||  -z ${CLIENT_SECRET} || -z ${SUBSCRIPTION_ID} || -z ${TENANT_ID} ]]; then
+if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} ]]; then
     usage
 fi
 
+REPLICATION_REGIONS=$(python3 ${SCRIPT_DIR}/couchbase_cloud_azure.py get_regions --env ${ENV})
+CLIENT_ID=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.azure.CLIENT_ID)
+SUBSCRIPTION_ID=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.azure.SUBSCRIPTION_ID)
+TENANT_ID=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.azure.TENENT_ID)
+CLIENT_SECRET_NAME=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.aws.AZURE_CLIENT_SECRET_NAME)
+export AWS_PROFILE=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.aws.ROLE_SESSION_NAME)
+CLIENT_SECRET=$(python3 couchbase_cloud_aws.py get_secret --secret_name ${CLIENT_SECRET_NAME})
 IMAGE_DEFINITION=${PRODUCT}-${VERSION}
+
 if [[ "${TOY_RELEASE}" == "true" ]]; then
   IMAGE_DEFINITION="Toy-${PRODUCT}-${VERSION}"
 fi

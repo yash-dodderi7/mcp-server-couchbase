@@ -5,6 +5,7 @@
 # proper permissions.
 
 import argparse
+import json
 import logging
 import re
 import sys
@@ -20,12 +21,8 @@ if not logger.handlers:
 
 
 def couchbase_azure_session(env):
-    azure_vars = common_utils.get_env_vars(
-        'azure',
-        env)
-    aws_vars = common_utils.get_env_vars(
-        'aws',
-        env)
+    azure_vars = common_utils.get_env_vars('azure', env)
+    aws_vars = common_utils.get_env_vars('aws', env)
     aws = AWSUtils(aws_vars['ROLE_SESSION_NAME'], 'us-east-1')
     client_secret = aws.get_secret(aws_vars['AZURE_CLIENT_SECRET_NAME'])
     if client_secret is None:
@@ -41,18 +38,28 @@ def couchbase_azure_session(env):
 def get_regions(env):
     couchbaseazure = couchbase_azure_session(env)
     regions = couchbaseazure.get_regions()
-    logger.info(f'{regions}')
+    # we don't want to publish to eastus2euap
+    regions.remove("eastus2euap")
+    logger.info(json.dumps(regions))
+
+
+def get_image(env, image_name):
+    couchbaseazure = couchbase_azure_session(env)
+    resource_group_name = 'image-factory'
+    result = couchbaseazure.get_image_by_name(resource_group_name, image_name)
+    logger.info(f'{result}')
+    return result
 
 
 def delete_image(env, image_name):
-    couchbaseazure = couchbase_azure_session(env)
-    resource_group_name = 'image-factory'
-    image_gallery = 'capella'
-    gallery_image_info = image_name.split('-v', 1)
-    gallery_image_name = gallery_image_info[0]
-    gallery_image_version = gallery_image_info[1]
-    result = couchbaseazure.get_image_by_name(resource_group_name, image_name)
+    result=get_image(env, image_name)
     if result:
+        couchbaseazure = couchbase_azure_session(env)
+        resource_group_name = 'image-factory'
+        image_gallery = 'capella'
+        gallery_image_info = image_name.split('-v', 1)
+        gallery_image_name = gallery_image_info[0]
+        gallery_image_version = gallery_image_info[1]
         couchbaseazure.delete_image_by_name(resource_group_name, image_name)
         couchbaseazure.delete_image_version(
             resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
@@ -102,6 +109,12 @@ if __name__ == "__main__":
         'Couchbase AZure Cloud', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
 
+    subparser_get_image = subparsers.add_parser(
+        'get_image', help='Check if an image exist')
+    subparser_get_image.add_argument(
+        '--image_name', type=str, required=True, help='Azure image name')
+    subparser_get_image.add_argument(
+        '--env', type=str, required=True, help='Which environment does the image belongs to')
     subparser_delete_image = subparsers.add_parser(
         'delete_image', help='delete an image from an Azure account')
     subparser_delete_image.add_argument(
@@ -109,9 +122,9 @@ if __name__ == "__main__":
     subparser_delete_image.add_argument(
         '--env', type=str, required=True, help='Which environment will the image be deleted from')
     subparser_get_regions = subparsers.add_parser(
-        'get_regions', help='Get enabled regions from an Azure account')
+        'get_regions', help='Get available regions of an Azure account')
     subparser_get_regions.add_argument(
-        '--env', type=str, required=True, help='Which environment to list the regions')
+        '--env', type=str, required=True, help='sandbox, stage, or production')
     subparser_create_image_definition = subparsers.add_parser(
         'create_image_definition', help='Create image definition if it does not exist')
     subparser_create_image_definition.add_argument(
@@ -131,6 +144,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     args = parser.parse_args()
+
+    if args.cmd == 'get_image':
+        get_image(args.env, args.image_name)
 
     if args.cmd == 'delete_image':
         delete_image(args.env, args.image_name)
