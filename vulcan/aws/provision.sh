@@ -9,7 +9,7 @@
   sudo apt install -y libreoffice
 
   # Create couchbase user
-  sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase
+  sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ubuntu
 
   # Install and start node exporter
   wget https://github.com/prometheus/node_exporter/releases/download/v${node_exporter_version}/${node_exporter_package}.tar.gz -P /tmp/
