@@ -82,11 +82,14 @@ EOT
     fi
 }
 
+#main
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 #default config
 ARCH="aarch64"
 AGENT_SHA="latest"
-AWS_SHARED_CREDENTIALS_FILE=${AWS_SHARED_CREDENTIALS_FILE:-"${WORKSPACE}/cloud-build-tools/utilities/.aws/credentials"}
-AWS_CONFIG_FILE=${AWS_CONFIG_FILE:-"${WORKSPACE}/cloud-build-tools/utilities/.aws/config"}
+AWS_SHARED_CREDENTIALS_FILE=${AWS_SHARED_CREDENTIALS_FILE:-"${SCRIPT_DIR}/.aws/credentials"}
+AWS_CONFIG_FILE=${AWS_CONFIG_FILE:-"${SCRIPT_DIR}/.aws/config"}
 
 AWS_REGION=${AWS_REGION:-"us-east-1"}
 AMI_REGIONS=$(python3 couchbase_cloud_aws.py get_regions | sed "s/'/\"/g")

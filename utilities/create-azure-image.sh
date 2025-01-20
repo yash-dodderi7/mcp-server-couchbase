@@ -9,7 +9,7 @@ function usage
     echo "  -b Build Number: i.e. 123"
     echo "  -o CLUSTER_RELEASE_VERSION"
     echo "  optional:"
-    echo "  -a SHA that agent is built from"
+    echo "  -g SHA that agent is built from"
     echo "  -w custom image name"
     exit 1
 }
@@ -98,7 +98,7 @@ GALLERY_NAME="capella"
 PLATFORM="linux"
 REGION="eastus"
 
-while getopts p:r:v:b:a:o:w: opt
+while getopts p:r:v:b:g:o:w: opt
 do
     case ${opt} in
         o) CLUSTER_RELEASE_VERSION=${OPTARG}
@@ -113,7 +113,7 @@ do
            ;;
         b) BLD_NUM=${OPTARG}
            ;;
-        a) AGENT_SHA=${OPTARG}
+        g) AGENT_SHA=${OPTARG}
            ;;
         *) usage
            ;;

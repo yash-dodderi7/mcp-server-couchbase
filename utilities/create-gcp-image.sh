@@ -2,13 +2,12 @@
 
 function usage
 {
-    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -e <environment> -i <Image Factory Project ID> -a <ARCH>"
+    echo "Usage: $0 -p <Product> -r <Release> -v <Version> -b <Build Number> -e <environment> -a <ARCH>"
     echo "  -p Product:  i.e. couchbase-server"
     echo "  -r RELEASE: trinity"
     echo "  -v Version: i.e. 7.6.4"
     echo "  -b Build Number: i.e. 123"
     echo "  -e Environment: test|nonprod|prod"
-    echo "  -i Image Factory Project ID"
     echo "  -a Image arch, defaults amd64 if not specified"
     exit 1
 }
@@ -86,13 +85,15 @@ EOT
 
 #Main
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 #default config
 ARCH="amd64"
 DP_REVISION=1
 PLATFORM="linux"
 AGENT_SHA="latest"
 
-while getopts a:b:d:e:g:i:o:p:r:v: opt
+while getopts a:b:d:e:g:o:p:r:v: opt
 do
     case ${opt} in
         a) ARCH=${OPTARG}
@@ -113,16 +114,19 @@ do
            ;;
         g) AGENT_SHA=${OPTARG}
            ;;
-        i) IMAGE_FACTORY_PROJECT_ID=${OPTARG}
-           ;;
         *) usage
            ;;
     esac
 done
 
-if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${IMAGE_FACTORY_PROJECT_ID} || -z ${ENV} ]]; then
+if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} || -z ${ENV} ]]; then
     usage
 fi
+
+export AWS_PROFILE=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.aws.ROLE_SESSION_NAME)
+IMAGE_FACTORY_PROJECT_ID=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.gcp.IMAGE_FACTORY_PROJECT_ID)
+mkdir -p  ${SCRIPT_DIR}/.gcp
+python3 couchbase_cloud_gcp.py get_access_token --env ${ENV} >  ${SCRIPT_DIR}/.gcp/${ENV}
 
 IMAGE_DEFINITION=${PRODUCT}-${VERSION}
 
