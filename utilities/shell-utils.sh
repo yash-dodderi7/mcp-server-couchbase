@@ -132,23 +132,56 @@ EOT
     export AWS_CONFIG_FILE=${aws_custom_config_dir}/config
 }
 
+# Function to download a specific agent with a given SHA
+function download_agent() {
+    local agent=${1}  # Agent name (e.g., dp-backup, dp-agent)
+    local sha=${2}    # SHA of the agent
+    local profile=${3} # AWS Profile
+    local bucket=${4} # AWS S3 bucket
+
+    echo "Downloading ${agent}: ${sha}"
+    aws s3 cp --quiet \
+        s3://${bucket}/releases/${agent}/${cloud}/${sha}/linux-${dp_arch} \
+        agents/${arch} \
+        --recursive \
+        --profile ${profile}
+}
+
+# Download dp-agent, dp-backup, and dp-observer
 function download_agents {
     arch=${1}
     dp_arch=${2}
     cloud=${3}
+
+    aws_profile="dbaas-prod-0001-temp"  # Defaults aws_profile to production
+    s3_bucket="cbc-internal-release"    # Production's s3 bucket
     mkdir -p agents/${arch}
-    for agent in dp-observer dp-backup dp-agent; do
-        aws s3 cp --quiet \
-            s3://cbc-internal-release/releases/${agent}/latest . \
-            --profile dbaas-prod-0001-temp
-        export DP_AGENT_SHA=$(cat latest)
-        echo "Downloading ${agent}: ${DP_AGENT_SHA}"
-        aws s3 cp --quiet \
-            s3://cbc-internal-release/releases/${agent}/${cloud}/${DP_AGENT_SHA}/linux-${dp_arch} \
-            agents/${arch} \
-            --recursive \
-            --profile dbaas-prod-0001-temp
-    done
+
+    # Always download observer from s3 bucket in prod account
+    aws s3 cp --quiet \
+        s3://${s3_bucket}/releases/dp-observer/latest . \
+        --profile ${aws_profile}
+    DP_OBSERVER_SHA=$(cat latest)
+    download_agent "dp-observer" ${DP_OBSERVER_SHA} ${aws_profile} ${s3_bucket}
+
+    # If DP_AGENT_SHA is set, download dp-agent and dp-backup from dbaas-test-0005-temp (usually for testing purpose)
+    # Otherwise, get the agents from prod account.
+    if [[ -z "${DP_AGENT_SHA}" ]]; then
+        for agent in dp-backup dp-agent; do
+            aws s3 cp --quiet \
+                s3://${s3_bucket}/releases/${agent}/latest . \
+                --profile ${aws_profile}
+            export DP_AGENT_SHA=$(cat latest)
+            download_agent ${agent} ${DP_AGENT_SHA} ${aws_profile} ${s3_bucket}
+        done
+    else
+        s3_bucket="cbc-internal-release-test"
+        aws_profile="dbaas-test-0005-temp"
+        # If DP_AGENT_SHA is already set, just download both agents using the AWS_PROFILE
+        for agent in dp-backup dp-agent; do
+            download_agent ${agent} ${DP_AGENT_SHA} ${aws_profile} ${s3_bucket}
+        done
+    fi
 }
 
 # Determine the latest available Golang version based on an input version
