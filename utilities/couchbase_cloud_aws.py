@@ -24,27 +24,6 @@ if not logger.handlers:
     logger.addHandler(console_handler)
 
 
-def build_ami(aws_profile, aws_region, packer_script, env_file):
-    couchbaseaws = AWSUtils(aws_profile, aws_region)
-    packer_env = common_utils.load_packer_env(env_file, 'ami_name')
-
-    ami_name = packer_env['ami_name']
-    # Check if AMI already exist
-    logger.info(
-        f'Checking if {ami_name} exist.')
-    find_ami = couchbaseaws.search_ami_by_pattern(ami_name)
-    if len(find_ami) != 0:
-        logger.info(
-            f'{ami_name} already exist.  It will not be created again.')
-    else:
-        logger.info(
-            f'Building {ami_name}.')
-        common_utils.run_cmd(["packer", "build", packer_script])
-        # Jenkins job will use this to decide if it is necessary to call QE
-        # validation pipeline.
-        common_utils.run_cmd(["touch", "IMAGES_CREATED"])
-
-
 def copy_ami(ami_name, source, source_profile,
              source_region, dest_profile, dest_region):
     if not source:
@@ -112,22 +91,35 @@ def delete_ami(ami_name_pattern, aws_profile, aws_region):
                 couchbaseaws.client.delete_snapshot(SnapshotId=snapshot_id)
 
 
+def cleanup_unattached_snapshots(aws_profile, aws_region):
+    couchbaseaws = AWSUtils(aws_profile, aws_region)
+    snapshots = couchbaseaws.get_all_resources(
+        'describe_snapshots', 'Snapshots', OwnerIds=['self'])
+    volumes = couchbaseaws.get_all_resources('describe_volumes', 'Volumes')
+    volume_ids = set(volume['VolumeId'] for volume in volumes)
+    amis = couchbaseaws.get_all_resources(
+        'describe_images',
+        'Images',
+        Owners=['self'],
+        IncludeDisabled=True)
+    ami_snapshot_ids = {
+        mapping.get('Ebs', {}).get('SnapshotId')
+        for ami in amis
+        for mapping in ami.get('BlockDeviceMappings', [])
+        if mapping.get('Ebs', {}).get('SnapshotId')
+    }
+    unattached_snapshots = [snapshot['SnapshotId']
+                            for snapshot in snapshots
+                            if snapshot['VolumeId'] not in volume_ids
+                            and snapshot['SnapshotId'] not in ami_snapshot_ids
+                            ]
+    for snapshot in unattached_snapshots:
+        couchbaseaws.client.delete_snapshot(SnapshotId=snapshot)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('Couchbase AWS Cloud', allow_abbrev=False)
     subparsers = parser.add_subparsers(help='sub-command help', dest='cmd')
-
-    subparser_build_ami = subparsers.add_parser(
-        'build_ami', help='Build an AMI')
-    subparser_build_ami.add_argument(
-        '--packer_script',
-        type=str,
-        required=True,
-        help='Path of the packer script')
-    subparser_build_ami.add_argument(
-        '--packer_var_files',
-        type=str,
-        default='.env',
-        help='Comma separated files containing variables needed by the packer script')
 
     subparser_copy_ami = subparsers.add_parser(
         'copy_ami', help='Promote(Copy) an AMI to another AWS account')
@@ -171,19 +163,22 @@ if __name__ == "__main__":
     subparser_release_ami.add_argument(
         '--ami_name', type=str, required=True, help='AMI name')
 
+    subparser_cleanup_snapshots = subparsers.add_parser(
+        'cleanup_snapshots', help='Remove Snapshots that are not associated with any volume')
+
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
     args = parser.parse_args()
 
-    if args.cmd == 'build_ami':
-        var_files = args.packer_var_files.split(',')
-        packer_script = args.packer_script
-        aws_region = os.getenv('AWS_REGION', 'us-east-1')
-        aws_profile = os.getenv('AWS_PROFILE')
-        common_utils.concurrent_executor(build_ami, 4, aws_profile,
-                                         aws_region, packer_script, items=var_files)
+    # Create base AWS client for commands that need it
+    if args.cmd in ['delete_ami', 'cleanup_snapshots', 'get_secret',
+                    'get_regions', 'release_ami']:
+        default_aws_profile = os.getenv('AWS_PROFILE')
+        default_aws_region = os.getenv('AWS_REGION', 'us-east-1')
+        aws_session = AWSUtils(default_aws_profile, default_aws_region)
+        regions = aws.get_regions()
 
     if args.cmd == 'copy_ami':
         couchbaseaws = AWSUtils(args.source_profile, args.source_region)
@@ -212,26 +207,19 @@ if __name__ == "__main__":
             target_aws_account_id)
 
     if args.cmd == 'delete_ami':
-        aws_profile = os.getenv('AWS_PROFILE')
         ami_name = args.ami_name
-        couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
-        regions = couchbaseaws.get_regions()
         common_utils.concurrent_executor(delete_ami, 25, ami_name,
                                          aws_profile, items=regions)
+    if args.cmd == 'cleanup_snapshots':
+        common_utils.concurrent_executor(
+            cleanup_unattached_snapshots, 25, aws_profile, items=regions)
 
     if args.cmd == 'get_secret':
-        aws_profile = os.getenv('AWS_PROFILE')
-        couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
         response = couchbaseaws.get_secret(args.secret_name)
         logger.info(f'{response}')
 
     if args.cmd == 'get_regions':
-        aws_profile = os.getenv('AWS_PROFILE')
-        couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
-        regions = couchbaseaws.get_regions()
         logger.info(f'{regions}')
 
     if args.cmd == 'release_ami':
-        aws_profile = os.getenv('AWS_PROFILE')
-        couchbaseaws = AWSUtils(aws_profile, 'us-east-1')
         couchbaseaws.release_image(args.ami_name)

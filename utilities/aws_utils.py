@@ -131,3 +131,11 @@ class AWSUtils:
                         {'Key': 'released', 'Value': 'true', },
                     ]
                 )
+    def get_all_resources(self, api, key, **params):
+        '''Use paginator to get results from aws apis'''
+        '''i.e. describe_snapshots, describe_volumes'''
+        paginator = self.client.get_paginator(api)
+        resources = []
+        for page in paginator.paginate(**params):
+            resources.extend(page[key])
+        return resources
