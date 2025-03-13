@@ -95,6 +95,7 @@ function check_pids {
 
 # Set AWS config in a custom location
 function init_aws_config {
+    OPTIND=1
     while getopts i:k:p:w: opt; do
         case ${opt} in
             i) aws_access_key_id=${OPTARG}
