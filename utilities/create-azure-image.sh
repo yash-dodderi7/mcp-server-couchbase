@@ -98,6 +98,7 @@ GALLERY_NAME="capella"
 PLATFORM="linux"
 REGION="eastus"
 
+OPTIND=1
 while getopts p:r:v:b:g:o:w: opt
 do
     case ${opt} in

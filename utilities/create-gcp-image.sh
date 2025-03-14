@@ -93,6 +93,7 @@ DP_REVISION=1
 PLATFORM="linux"
 AGENT_SHA="latest"
 
+OPTIND=1
 while getopts a:b:d:e:g:o:p:r:v: opt
 do
     case ${opt} in

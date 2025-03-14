@@ -94,6 +94,7 @@ AWS_CONFIG_FILE=${AWS_CONFIG_FILE:-"${SCRIPT_DIR}/.aws/config"}
 AWS_REGION=${AWS_REGION:-"us-east-1"}
 AMI_REGIONS=$(python3 couchbase_cloud_aws.py get_regions | sed "s/'/\"/g")
 
+OPTIND=1
 while getopts a:b:d:e:g:p:r:v: opt
 do
     case ${opt} in
