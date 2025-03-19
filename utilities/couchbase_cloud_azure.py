@@ -19,6 +19,7 @@ if not logger.handlers:
     console_handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(console_handler)
 
+excluded_regions = {"eastus2euap", "indonesiacentral"}
 
 def couchbase_azure_session(env):
     azure_vars = common_utils.get_env_vars('azure', env)
@@ -38,9 +39,10 @@ def couchbase_azure_session(env):
 def get_regions(env):
     couchbaseazure = couchbase_azure_session(env)
     regions = couchbaseazure.get_regions()
-    # we don't want to publish to eastus2euap
-    regions.remove("eastus2euap")
-    logger.info(json.dumps(regions))
+    # Exclude regions that Capella doesn't support
+    # These regions might be available, but not configured to allow image replication.
+    filtered_regions = [region for region in regions if region not in excluded_regions]
+    logger.info(json.dumps(filtered_regions))
 
 
 def get_image(env, image_name):
