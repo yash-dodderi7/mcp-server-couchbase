@@ -16,7 +16,7 @@ WorkingDirectory=/home/ec2-user
 # drastically and there is a concern that the CP could not handle the extra
 # volume of metrics. Only remove with sufficient load testing.
 ExecStart=/usr/bin/process-exporter \
-                --procnames=memcached,cbq-engine,goxdcr,epmd,godu,indexer,projector,java,cbft,cbas,eventing-producer,goport,gosecrets,cbcollect_info,eventing-consumer,dp-agent,dp-observer,shoreline,prometheus \
+                --procnames=memcached,cbq-engine,cng-agent,goxdcr,epmd,godu,indexer,projector,java,cbft,cbas,eventing-producer,goport,gosecrets,cbcollect_info,eventing-consumer,dp-agent,dp-observer,prometheus \
                 --web.listen-address=:12005 \
                 --threads=false
 
