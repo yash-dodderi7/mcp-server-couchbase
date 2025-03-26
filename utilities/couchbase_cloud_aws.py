@@ -178,7 +178,7 @@ if __name__ == "__main__":
         default_aws_profile = os.getenv('AWS_PROFILE')
         default_aws_region = os.getenv('AWS_REGION', 'us-east-1')
         aws_session = AWSUtils(default_aws_profile, default_aws_region)
-        regions = aws.get_regions()
+        regions = aws_session.get_regions()
 
     if args.cmd == 'copy_ami':
         couchbaseaws = AWSUtils(args.source_profile, args.source_region)
@@ -215,11 +215,11 @@ if __name__ == "__main__":
             cleanup_unattached_snapshots, 25, aws_profile, items=regions)
 
     if args.cmd == 'get_secret':
-        response = couchbaseaws.get_secret(args.secret_name)
+        response = aws_session.get_secret(args.secret_name)
         logger.info(f'{response}')
 
     if args.cmd == 'get_regions':
         logger.info(f'{regions}')
 
     if args.cmd == 'release_ami':
-        couchbaseaws.release_image(args.ami_name)
+        aws_session.release_image(args.ami_name)
