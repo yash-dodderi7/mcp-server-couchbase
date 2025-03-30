@@ -209,7 +209,7 @@ if __name__ == "__main__":
     if args.cmd == 'delete_ami':
         ami_name = args.ami_name
         common_utils.concurrent_executor(delete_ami, 25, ami_name,
-                                         aws_profile, items=regions)
+                                         default_aws_profile, items=regions)
     if args.cmd == 'cleanup_snapshots':
         common_utils.concurrent_executor(
             cleanup_unattached_snapshots, 25, aws_profile, items=regions)
