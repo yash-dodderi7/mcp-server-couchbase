@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import sys
+import time
 from aws_utils import AWSUtils
 from azure_utils import AzureUtils
 import common_utils
@@ -54,7 +55,7 @@ def get_image(env, image_name):
 
 
 def delete_image(env, image_name):
-    result=get_image(env, image_name)
+    result = get_image(env, image_name)
     if result:
         couchbaseazure = couchbase_azure_session(env)
         resource_group_name = 'image-factory'
@@ -62,9 +63,32 @@ def delete_image(env, image_name):
         gallery_image_info = image_name.split('-v', 1)
         gallery_image_name = gallery_image_info[0]
         gallery_image_version = gallery_image_info[1]
+
+        # Delete image and wait for completion
+        logger.info(f'Deleting image {image_name}...')
         couchbaseazure.delete_image_by_name(resource_group_name, image_name)
+        while True:
+            try:
+                if not couchbaseazure.get_image_by_name(resource_group_name, image_name):
+                    break
+                logger.info(f'Waiting for {image_name} to be  deleted...')
+                time.sleep(10)
+            except Exception:
+                break
+
+        # Delete image version and wait for completion
+        logger.info(f'Deleting image version {gallery_image_version} from {gallery_image_name}...')
         couchbaseazure.delete_image_version(
             resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
+        while True:
+            try:
+                couchbaseazure.get_image_version(
+                    resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
+                logger.info(f'Waiting for {gallery_image_version} to be deleted from {gallery_image_name}...')
+                time.sleep(10)
+            except Exception:
+                break
+        logger.info(f'{image_name} and {gallery_image_version} from {gallery_image_name} are deleted')
 
 
 def create_image_definition(env, image_definition_name):
