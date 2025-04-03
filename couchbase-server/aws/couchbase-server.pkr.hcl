@@ -52,6 +52,8 @@ locals {
   process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${local.exporter_arch}"
   node_exporter_version = "1.1.2"
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
+  pushgateway_version = "1.11.0"
+  pushgateway_package = "pushgateway-${local.pushgateway_version}.linux-${local.exporter_arch}"
 }
 
 source "amazon-ebs" "cc" {
@@ -123,6 +125,11 @@ build {
   provisioner "file" {
     destination = "/tmp/"
     source      = "process-exporter.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "pushgateway.service"
   }
 
 
@@ -202,6 +209,12 @@ build {
       "sudo rm /tmp/${local.process-exporter_package}.rpm",
       "sudo mv /tmp/process-exporter.service /lib/systemd/system/process-exporter.service",
       "sudo systemctl enable process-exporter.service",
+      // Install pushgateway - do not enable
+      "sudo wget https://github.com/prometheus/pushgateway/releases/download/v${local.pushgateway_version}/${local.pushgateway_package}.tar.gz -P /tmp/",
+      "sudo tar xvfz /tmp/${local.pushgateway_package}.tar.gz -C /home/ec2-user/ --strip-components=1 ${local.pushgateway_package}/pushgateway",
+      "sudo rm -f /tmp/${local.pushgateway_package}.tar.gz",
+      "sudo chown ec2-user:ec2-user /home/ec2-user/pushgateway",
+      "sudo mv /tmp/pushgateway.service /lib/systemd/system/pushgateway.service",
       // Install and enable dp-agent
       "sudo mv /tmp/${var.dp_service}.service /lib/systemd/system/${var.dp_service}.service",
       "sudo mv /tmp/${var.dp_service}.gz /home/ec2-user",
