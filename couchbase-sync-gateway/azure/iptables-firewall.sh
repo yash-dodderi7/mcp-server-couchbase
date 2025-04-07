@@ -1,3 +1,3 @@
 #!/bin/bash
 
-iptables -A OUTPUT -d 169.254.169.254 -m owner --uid-owner couchbase -j DROP
+iptables -A OUTPUT -d 169.254.0.0/16 -m owner --uid-owner sync_gateway -j DROP
