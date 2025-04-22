@@ -60,6 +60,9 @@ class GCPUtils:
             file.write(self.access_token_impersonated)
 
     def create_aws_token(self):
+        '''
+        Generate a GCP-encoded AWS GetCallerIdentity token
+        '''
         gcp_wip_provider = (
             f'//iam.googleapis.com/projects/{self.rc_project_number}/locations'
             f'/global/workloadIdentityPools/{self.pool_id}/providers'
@@ -134,9 +137,10 @@ class GCPUtils:
             sys.exit()
         return result['access_token']
 
-    # Uses the sts token from google sts to request an access token from GCP
-    # IAM using a service account
     def generate_access_token(self, token, account):
+        '''
+        Use sts token to generate a GCP access token for a service account.
+        '''
         data = {
             'scope': ['https://www.googleapis.com/auth/cloud-platform']
         }
@@ -164,6 +168,9 @@ class GCPUtils:
         return result['accessToken']
 
     def get_image_by_name(self, image_name):
+        '''
+        Retrieve details of a specific GCP Compute Engine image.
+        '''
         client = compute_v1.ImagesClient(credentials=self.credentials)
 
         request = compute_v1.GetImageRequest(
@@ -180,6 +187,9 @@ class GCPUtils:
                 sys.exit(e.errors)
 
     def delete_image_by_name(self, image_name):
+        '''
+        Delete a GCP Compute Engine image.
+        '''
         client = compute_v1.ImagesClient(credentials=self.credentials)
         request = compute_v1.DeleteImageRequest(
             image=image_name,
@@ -187,19 +197,53 @@ class GCPUtils:
         )
         client.delete(request=request)
 
-    def search_image_by_pattern(self, image_name_pattern):
+
+    def search_image_by_pattern(self, image_filters, exclude_labels=None):
+        '''
+        Search for GCP Compute Engine images using filter criteria.
+        Example:
+            image_filters = {'name': 'my-image'}
+            exclude_labels = {'released': 'true'}
+        '''
         client = compute_v1.ImagesClient(credentials=self.credentials)
 
+        # Combine base filters with user filters
+        image_filters['labels.creator'] = 'build-team'
+        include_conditions = [f"{k}={v}" for k, v in image_filters.items()]
+        filter_string = " AND ".join(include_conditions)
+
+        # Get initial list of images
         images_list_request = compute_v1.ListImagesRequest(
             project=self.image_factory_project_id,
-            filter=f"name:{image_name_pattern}"
+            filter=filter_string
         )
-        return client.list(request=images_list_request)
+        images = client.list(request=images_list_request)
 
-    def release_image(self, image):
+        if not exclude_labels:
+            return images
+
+        # Filter out excluded images in Python
+        final_images = []
+        for image in images:
+            exclude_image = False
+            for key, value in exclude_labels.items():
+                if image.labels.get(key) == value:
+                    exclude_image = True
+                    break
+            if not exclude_image:
+                final_images.append(image)
+        return final_images
+
+
+    def update_image_tags(self, image, tags):
+        '''
+        Update or add tags to a compute image.
+        This does not remove existing tags.
+        If a tag already exists, it will be updated with the new value.
+        '''
         client = compute_v1.ImagesClient(credentials=self.credentials)
-        image_labels = image.labels
-        image_labels['released'] = 'true'
+        image_labels = image.labels or {}
+        image_labels.update(tags)
         set_labels_request_body = {
             'labels': image_labels,
             'label_fingerprint': image.label_fingerprint

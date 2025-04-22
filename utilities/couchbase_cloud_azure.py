@@ -22,7 +22,11 @@ if not logger.handlers:
 
 excluded_regions = {"eastus2euap", "indonesiacentral"}
 
+
 def couchbase_azure_session(env):
+    '''
+    Create a session to Azure using AWS credentials.
+    '''
     azure_vars = common_utils.get_env_vars('azure', env)
     aws_vars = common_utils.get_env_vars('aws', env)
     aws = AWSUtils(aws_vars['ROLE_SESSION_NAME'], 'us-east-1')
@@ -38,6 +42,9 @@ def couchbase_azure_session(env):
 
 
 def get_regions(env):
+    '''
+    Get available regions of an Azure account.
+    '''
     couchbaseazure = couchbase_azure_session(env)
     regions = couchbaseazure.get_regions()
     # Exclude regions that Capella doesn't support
@@ -47,6 +54,9 @@ def get_regions(env):
 
 
 def get_image(env, image_name):
+    '''
+    Get details of an Azure image.
+    '''
     couchbaseazure = couchbase_azure_session(env)
     resource_group_name = 'image-factory'
     result = couchbaseazure.get_image_by_name(resource_group_name, image_name)
@@ -55,43 +65,55 @@ def get_image(env, image_name):
 
 
 def delete_image(env, image_name):
-    result = get_image(env, image_name)
-    if result:
-        couchbaseazure = couchbase_azure_session(env)
-        resource_group_name = 'image-factory'
-        image_gallery = 'capella'
-        gallery_image_info = image_name.split('-v', 1)
-        gallery_image_name = gallery_image_info[0]
-        gallery_image_version = gallery_image_info[1]
-
-        # Delete image and wait for completion
-        logger.info(f'Deleting image {image_name}...')
-        couchbaseazure.delete_image_by_name(resource_group_name, image_name)
-        while True:
-            try:
-                if not couchbaseazure.get_image_by_name(resource_group_name, image_name):
-                    break
-                logger.info(f'Waiting for {image_name} to be  deleted...')
-                time.sleep(10)
-            except Exception:
+    '''
+    Delete an Azure image.
+    '''
+    resource_group_name = 'image-factory'
+    image_gallery = 'capella'
+    gallery_image_info = image_name.split('-v', 1)
+    gallery_image_name = gallery_image_info[0]
+    gallery_image_version = gallery_image_info[1]
+    couchbaseazure = couchbase_azure_session(env)
+    result = couchbaseazure.search_image_by_pattern(
+        resource_group_name, image_filters = {'name': image_name},
+        exclude_tags = {'released': 'true'})
+    if not result:
+        logger.info(f'{image_name} is not found or it is excluded from deletion.')
+        return
+    # Delete image and wait for completion
+    logger.info(f'Deleting image {image_name}...')
+    couchbaseazure.delete_image_by_name(resource_group_name, image_name)
+    while True:
+        try:
+            result = couchbaseazure.get_image_by_name(resource_group_name, image_name)
+            if len(result) == 0:
                 break
+            logger.info(f'Waiting for {image_name} to be  deleted...')
+            time.sleep(10)
+        except Exception:
+            # Image not found, which means deletion is complete
+            break
 
-        # Delete image version and wait for completion
-        logger.info(f'Deleting image version {gallery_image_version} from {gallery_image_name}...')
-        couchbaseazure.delete_image_version(
-            resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
-        while True:
-            try:
-                couchbaseazure.get_image_version(
-                    resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
-                logger.info(f'Waiting for {gallery_image_version} to be deleted from {gallery_image_name}...')
-                time.sleep(10)
-            except Exception:
-                break
-        logger.info(f'{image_name} and {gallery_image_version} from {gallery_image_name} are deleted')
+    # Delete image version associated with the image and wait for completion
+    logger.info(f'Deleting image version {gallery_image_version} from {gallery_image_name}...')
+    couchbaseazure.delete_image_version(
+        resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
+    while True:
+        try:
+            couchbaseazure.get_image_version(
+                resource_group_name, image_gallery, gallery_image_name, gallery_image_version)
+            logger.info(f'Waiting for {gallery_image_version} to be deleted from {gallery_image_name}...')
+            time.sleep(10)
+        except Exception:
+            # Image version not found, which means deletion is complete
+            break
+    logger.info(f'{image_name} and {gallery_image_version} from {gallery_image_name} are deleted')
 
 
 def create_image_definition(env, image_definition_name):
+    '''
+    Create an image definition in an Azure account.
+    '''
     couchbaseazure = couchbase_azure_session(env)
     resource_group_name = 'image-factory'
     gallery_name = 'capella'
@@ -121,13 +143,18 @@ def create_image_definition(env, image_definition_name):
 
 
 def release_image(env, image_name):
+    '''
+    Release an image in an Azure account.
+    '''
     couchbaseazure = couchbase_azure_session(env)
     resource_group_name = 'image-factory'
     image_gallery = 'capella'
     gallery_image_info = image_name.split('-v', 1)
     gallery_image_name = gallery_image_info[0]
     gallery_image_version = gallery_image_info[1]
-    couchbaseazure.release_image(resource_group_name, image_name)
+    couchbaseazure.update_image_tags(
+        resource_group_name, image_name, {
+            'released': 'true'})
 
 
 if __name__ == "__main__":

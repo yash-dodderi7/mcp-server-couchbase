@@ -22,22 +22,37 @@ if not logger.handlers:
 
 
 def get_access_token(env):
+    '''
+    Get an access token for a GCP service account.
+    '''
     gcp = GCPUtils(env)
     logger.info(gcp.access_token_impersonated)
 
 
-def delete_image(env, image_name_pattern):
+def delete_image(env, image_name):
+    '''
+    Delete a GCP Compute Engine image.
+    '''
     couchbasegcp = GCPUtils(env)
-    page_result = couchbasegcp.search_image_by_pattern(image_name_pattern)
-    for image in page_result:
+    result = couchbasegcp.search_image_by_pattern(
+        image_filters = {'name': image_name},
+        exclude_labels = {'released': 'true'})
+    if not result:
+        logger.info(f'{image_name} is not found or is excluded from deletion.')
+        return
+    for image in result:
+        logger.info(f'Deleting {image.name}...')
         couchbasegcp.delete_image_by_name(image.name)
 
 
 def release_image(env, image_name):
+    '''
+    Release a GCP Compute Engine image.
+    '''
     couchbasegcp = GCPUtils(env)
     image = couchbasegcp.get_image_by_name(image_name)
     if image is not None:
-        couchbasegcp.release_image(image)
+        couchbasegcp.update_image_tags(image, {'released': 'true'})
 
 
 if __name__ == '__main__':

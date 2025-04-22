@@ -26,11 +26,15 @@ if not logger.handlers:
 
 def copy_ami(ami_name, source, source_profile,
              source_region, dest_profile, dest_region):
+    '''
+    Copy an AMI to another AWS region/account.
+    '''
     if not source:
         source = AWSUtils(source_profile, source_region)
     destination = AWSUtils(dest_profile, dest_region)
     # Check if AMI already exist on destination
-    dest_amis = destination.search_ami_by_pattern(ami_name)
+    dest_amis = destination.search_ami_by_pattern(
+       ami_filters = {'name': ami_name})
     if len(dest_amis) != 0:
         logger.info(
             f'{ami_name} is already on {destination.aws_account_id} '
@@ -39,7 +43,8 @@ def copy_ami(ami_name, source, source_profile,
         return
 
     # Get AMI detail
-    source_amis = source.search_ami_by_pattern(ami_name)
+    source_amis = source.search_ami_by_pattern(
+        ami_filters = {'name': ami_name})
     if len(source_amis) == 1:
         source_ami = source_amis[0]
     else:
@@ -73,12 +78,16 @@ def copy_ami(ami_name, source, source_profile,
 
 
 def delete_ami(ami_name_pattern, aws_profile, aws_region):
+    '''
+    Deregister and delete an AMI from a given AWS region/account.
+    '''
     couchbaseaws = AWSUtils(aws_profile, aws_region)
-    amis = couchbaseaws.search_ami_by_pattern(ami_name_pattern)
+    amis = couchbaseaws.search_ami_by_pattern(
+        ami_filters = {'name': ami_name_pattern},
+        exclude_tags = {'released': 'true'})
     if len(amis) == 0:
         logger.info(
-            f'No AMI named, {ami_name}, is found on {aws_profile} {aws_region}.  '
-            f'Nothing to delete.'
+            f'{ami_name} is not found or is excluded from deletion on {aws_profile} {aws_region}.'
         )
         return
     for ami in amis:
@@ -92,6 +101,9 @@ def delete_ami(ami_name_pattern, aws_profile, aws_region):
 
 
 def cleanup_unattached_snapshots(aws_profile, aws_region):
+    '''
+    Delete unattached snapshots.
+    '''
     couchbaseaws = AWSUtils(aws_profile, aws_region)
     snapshots = couchbaseaws.get_all_resources(
         'describe_snapshots', 'Snapshots', OwnerIds=['self'])
@@ -115,6 +127,22 @@ def cleanup_unattached_snapshots(aws_profile, aws_region):
                             ]
     for snapshot in unattached_snapshots:
         couchbaseaws.client.delete_snapshot(SnapshotId=snapshot)
+
+
+def release_ami(ami_name, aws_region):
+    '''
+    Tag AMI and its snapshot as released.
+    '''
+    couchbaseaws = AWSUtils(default_aws_profile, aws_region)
+    images = couchbaseaws.search_ami_by_pattern(
+        ami_filters = {'name': ami_name})
+    if len(images) != 1:
+        logger.error(
+            f"{len(images)} {ami_name} found in {aws_region}."
+            f'  There should only be one.  These images will not be tagged.'
+        )
+    else:
+        couchbaseaws.update_image_tags(ami_name, {'released': 'true'})
 
 
 if __name__ == "__main__":
@@ -212,7 +240,7 @@ if __name__ == "__main__":
                                          default_aws_profile, items=regions)
     if args.cmd == 'cleanup_snapshots':
         common_utils.concurrent_executor(
-            cleanup_unattached_snapshots, 25, aws_profile, items=regions)
+            cleanup_unattached_snapshots, 25, default_aws_profile, items=regions)
 
     if args.cmd == 'get_secret':
         response = aws_session.get_secret(args.secret_name)
@@ -222,4 +250,6 @@ if __name__ == "__main__":
         logger.info(f'{regions}')
 
     if args.cmd == 'release_ami':
-        aws_session.release_image(args.ami_name)
+        ami_name = args.ami_name
+        common_utils.concurrent_executor(release_ami, 25, ami_name,
+                                         items=regions)

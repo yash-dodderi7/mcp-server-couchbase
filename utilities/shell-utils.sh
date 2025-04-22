@@ -165,8 +165,8 @@ function download_agents {
     DP_OBSERVER_SHA=$(cat latest)
     download_agent "dp-observer" ${DP_OBSERVER_SHA} ${aws_profile} ${s3_bucket}
 
-    # If DP_AGENT_SHA is set, download dp-agent and dp-backup from dbaas-test-0005-temp (usually for testing purpose)
-    # Otherwise, get the agents from prod account.
+    # If DP_AGENT_SHA is not set, download the latest dp-agent and dp-backup.
+    # Otherwise, download base on the specific SHA
     if [[ -z "${DP_AGENT_SHA}" ]]; then
         for agent in dp-backup dp-agent; do
             aws s3 cp --quiet \
@@ -176,9 +176,6 @@ function download_agents {
             download_agent ${agent} ${DP_AGENT_SHA} ${aws_profile} ${s3_bucket}
         done
     else
-        s3_bucket="cbc-internal-release-test"
-        aws_profile="dbaas-test-0005-temp"
-        # If DP_AGENT_SHA is already set, just download both agents using the AWS_PROFILE
         for agent in dp-backup dp-agent; do
             download_agent ${agent} ${DP_AGENT_SHA} ${aws_profile} ${s3_bucket}
         done
