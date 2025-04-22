@@ -48,7 +48,11 @@ EOT
     #packer variables specific for couchbase-server
     case ${PRODUCT} in
         couchbase-columnar)
-            echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            if [[ "${RELEASE}" == "ionic" ]]; then
+                echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            else
+                echo "export PKR_VAR_ns_server_profile=columnar_provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            fi
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-server*)

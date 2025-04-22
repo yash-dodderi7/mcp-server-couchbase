@@ -57,7 +57,11 @@ EOT
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         couchbase-columnar)
-            echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            if [[ "${RELEASE}" == "ionic" ]]; then
+                echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            else
+                echo "export PKR_VAR_ns_server_profile=columnar_provisioned" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            fi
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         *)
