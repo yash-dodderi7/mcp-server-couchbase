@@ -125,7 +125,8 @@ def get_aws_images(aws, product, version):
     images['available'] = []
     images['latest_sha'] = ''
     image_pattern = f'{product}-{version}*-v*'
-    available_images = aws.search_ami_by_pattern(image_pattern)
+    available_images = aws.search_ami_by_pattern(
+        ami_filters = {'name': image_pattern})
     if available_images:
         available_images.sort(key=lambda x: (x['Name']), reverse=True)
         for item in available_images:
@@ -150,7 +151,10 @@ def get_gcp_images(gcp, product, version):
     images['available'] = []
     images['latest_sha'] = ''
     image_pattern = f'{product}-{gcp_version}-*'
-    available_images = list(gcp.search_image_by_pattern(image_pattern))
+    available_images = gcp.search_image_by_pattern(
+        image_filters = {'name': image_pattern})
+    if not isinstance(available_images, list):
+        available_images = list(available_images)
     if available_images:
         available_images.sort(key=lambda x: (x.name), reverse=True)
         for item in available_images:
@@ -172,7 +176,7 @@ def get_azure_images(azure, product, version):
     images['available'] = []
     images['latest_sha'] = ''
     image_pattern = f'^{product}-{version}-v(?!0.0.0)'
-    all_images = azure.get_images('image-factory')
+    all_images, image_versions = azure.get_images_by_resource_group('image-factory')
     available_images = list(
         filter(
             lambda x: re.search(
