@@ -33,7 +33,7 @@ variable "access_token" {
 }
 
 locals {
-  source_image_family = "ubuntu-2004-lts"
+  source_image_family = "ubuntu-2404-lts-amd64"
   dp_service = "sgw-agent"
   product_arch = "x86_64"
   zone = "us-central1-a"
@@ -180,7 +180,7 @@ build {
       "sudo usermod -a -G ec2-user sync_gateway && sudo usermod -a -G systemd-journal sync_gateway",
       // Install fluent-bit
       "curl https://packages.fluentbit.io/fluentbit.key | gpg --dearmor | sudo tee /usr/share/keyrings/fluentbit-keyring.gpg",
-      "echo \"deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/ubuntu/focal focal main\" | sudo tee -a /etc/apt/sources.list",
+      "echo \"deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/ubuntu/noble noble main\" | sudo tee -a /etc/apt/sources.list",
       "sudo apt-get update",
       "sudo apt-get install -y fluent-bit",
       "sudo mv /tmp/fluent-bit.service /usr/lib/systemd/system/fluent-bit.service",
