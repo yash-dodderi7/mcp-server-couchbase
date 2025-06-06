@@ -67,7 +67,7 @@ locals {
   //   arm64 is currently not available in us-central1-a
   platform = "linux"
   disk_type = var.product_arch == "amd64" ? "pd-standard" : "hyperdisk-balanced"
-  source_image_family = var.product_arch == "amd64" ? "ubuntu-2004-lts" : "ubuntu-2004-lts-arm64"
+  source_image_family = var.product_arch == "amd64" ? "ubuntu-2404-lts-amd64" : "ubuntu-2404-lts-arm64"
   machine_type = var.product_arch == "amd64" ? "n2-standard-2" : "c4a-standard-1"
   zone = var.product_arch == "amd64" ? "us-central1-a" : "us-east4-b"
 
@@ -148,7 +148,7 @@ build {
     destination = "/tmp/"
     source      = "pushgateway.service"
   }
-  
+
   provisioner "file" {
     destination = "/tmp/disable-thp.service"
     source      = "disable-thp.service"
