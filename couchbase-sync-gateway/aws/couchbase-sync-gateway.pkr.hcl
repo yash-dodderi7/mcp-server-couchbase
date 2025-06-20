@@ -22,17 +22,14 @@ variable "region" {
 
 locals {
   dp_service = "sgw-agent"
-  ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
-  source_ami_name = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
+  ami_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
+  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
   exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
   process-exporter_version = "0.7.5"
   process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${local.exporter_arch}"
   node_exporter_version = "1.1.2"
   node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
-
-  // install & enable sgw-observer
-  sgwObserverConfig = "sudo mv /tmp/sgw-observer.service /lib/systemd/system/sgw-observer.service && sudo gunzip -c /tmp/sgw-observer.gz > /home/ec2-user/sgw-observer && sudo chmod +x /home/ec2-user/sgw-observer && sudo systemctl enable sgw-observer.service"
 }
 
 source "amazon-ebs" "cc" {
@@ -47,7 +44,7 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["amazon"]
+    owners      = ["099720109477"]
   }
   tags = {
     owner                = "couchbase-capella"
@@ -61,9 +58,9 @@ source "amazon-ebs" "cc" {
     creator              = "build-team"
     arch                 = "${var.product_arch}"
     product_version      = "${var.product_version}"
-    version              = "${var.product_version}-${var.product_bld_num}"
+    persion              = "${var.product_version}-${var.product_bld_num}"
   }
-  ssh_username = "ec2-user"
+  ssh_username = "ubuntu"
 }
 
 # a build block invokes sources and runs provisioning steps on them.
@@ -125,11 +122,12 @@ build {
     source      = "sgw-firewall.service"
   }
 
-
   provisioner "shell" {
     inline = [
       "sleep 10",
       // create new group and allow users to sudo without a password
+      "sudo useradd -m -s /bin/bash ec2-user",
+      "echo \"ec2-user ALL=(ALL) NOPASSWD:ALL\" | sudo tee /etc/sudoers.d/dpapps",
       "sudo mv /tmp/journald.conf /etc/systemd/journald.conf",
       "sudo chown root:root /etc/systemd/journald.conf",
       "sudo chmod 755 /etc/systemd/journald.conf",
@@ -137,17 +135,25 @@ build {
       "sudo sh -c 'echo \"vm.swappiness = 0\" >> /etc/sysctl.conf'",
       "sudo sysctl vm.swappiness=0",
       // Install dependent packages:
-      "sudo yum install -y bzip2 wget rsync",
-      "sudo yum install -y /tmp/${var.product_pkg_name}",
+      "sudo apt install -y bzip2 curl gpg wget rsync",
+      "sudo apt install -y /tmp/${var.product_pkg_name}",
       "sudo rm /tmp/${var.product_pkg_name}",
+
+      "sudo chown -R sync_gateway:sync_gateway /home/sync_gateway",
+
+
+      // Add sync_gateway user to ec2-user group, so it can read files created by ec2-user
+      // Add sync_gateway user to systemd-journal group
+      "sudo usermod -a -G ec2-user sync_gateway && sudo usermod -a -G systemd-journal sync_gateway",
+
+      "sudo usermod -a -G sync_gateway ec2-user",
+      "sudo chmod 770 /home/sync_gateway/",
+
       // Remove the default startup config.
       "sudo rm -rf /home/sync_gateway/sync_gateway.json",
       // Replace the config env in the systemd file with the path of the
       // bootstrap config which will be created by the agent.
       "sudo sed -i -e 's@CONFIG=/home/sync_gateway/sync_gateway.json@CONFIG=/dev/shm/sync_gateway_bootstrap.json@g' /usr/lib/systemd/system/sync_gateway.service",
-
-      "sudo usermod -a -G sync_gateway ec2-user",
-      "sudo chmod 770 /home/sync_gateway/",
 
       // Install and start node exporter
       "sudo wget https://github.com/prometheus/node_exporter/releases/download/v${local.node_exporter_version}/${local.node_exporter_package}.tar.gz -P /tmp/",
@@ -162,8 +168,13 @@ build {
       "sudo gunzip /home/ec2-user/${local.dp_service}.gz",
       "sudo chmod +x /home/ec2-user/${local.dp_service}",
       "sudo systemctl enable ${local.dp_service}.service",
-      // Install & configure sgw-observer
-      "${local.sgwObserverConfig}",
+      
+
+      "sudo mv /tmp/sgw-observer.service /lib/systemd/system/sgw-observer.service",
+      "sudo gunzip -c /tmp/sgw-observer.gz > /tmp/sgw-observer",
+      "sudo mv /tmp/sgw-observer /home/ec2-user/sgw-observer",
+      "sudo chmod +x /home/ec2-user/sgw-observer",
+      "sudo systemctl enable sgw-observer.service",
       "sudo rm -f /tmp/sgw-observer*",
       // Install firewall service
       "sudo mv /tmp/sgw-firewall.service /lib/systemd/system/sgw-firewall.service",
@@ -172,20 +183,11 @@ build {
       "sudo chown root:root /home/ec2-user/iptables-firewall.sh",
       "sudo systemctl start sgw-firewall.service",
       "sudo systemctl enable sgw-firewall.service",
-      // Add sync_gateway user to ec2-user group, so it can read files created by ec2-user
-      // Add sync_gateway user to systemd-journal group
-      "sudo usermod -a -G ec2-user sync_gateway && sudo usermod -a -G systemd-journal sync_gateway",
       // Install fluent-bit
-      "cat << EOF > /tmp/fluent-bit.repo",
-      "[fluent-bit]",
-      "name = Fluent Bit",
-      "baseurl = https://packages.fluentbit.io/amazonlinux/2/",
-      "gpgcheck=1",
-      "gpgkey=https://packages.fluentbit.io/fluentbit.key",
-      "enabled=1",
-      "EOF",
-      "sudo mv /tmp/fluent-bit.repo /etc/yum.repos.d/fluent-bit.repo",
-      "sudo yum install -y fluent-bit",
+      "curl https://packages.fluentbit.io/fluentbit.key | gpg --dearmor | sudo tee /usr/share/keyrings/fluentbit-keyring.gpg",
+      "echo \"deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/ubuntu/noble noble main\" | sudo tee -a /etc/apt/sources.list",
+      "sudo apt-get update",
+      "sudo apt-get install -y fluent-bit",
       "sudo mv /tmp/fluent-bit.service /usr/lib/systemd/system/fluent-bit.service",
       "sudo mv /tmp/audit-fluent-bit.service /usr/lib/systemd/system/audit-fluent-bit.service",
     ]
