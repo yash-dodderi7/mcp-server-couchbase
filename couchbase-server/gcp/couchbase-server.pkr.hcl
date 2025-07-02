@@ -225,9 +225,23 @@ build {
       "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
       "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/chain.pem",
       "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/pkey.key",
+      // Configure systemd service with cgroup delegation
+      // This applies to couchbase-server 8.0.0 and above.
+      // create-provisioned-cgroups.sh only exists in 8.0 and above
+      // If this file doesn't exist, we skip changing service file
+      "if [ ${local.product_service} = \"couchbase-server\" ]; then BASE_DIR=\"/opt/couchbase\"; else BASE_DIR=\"/opt/${local.product_service}\"; fi",
+      "if [ -f $${BASE_DIR}/bin/create-provisioned-cgroups.sh ]; then",
+      "  SERVICE_FILE=\"/usr/lib/systemd/system/${local.product_service}.service\"",
+      "  CGROUP_PATH=\"/sys/fs/cgroup/system.slice/${local.product_service}.service/\"",
+      "  CGROUP_SCRIPT=\"$${BASE_DIR}/bin/create-provisioned-cgroups.sh\"",
+      "  # Add systemd cgroup delegation settings",
+      "  sudo sed -i '/\\[Service\\]/a Delegate=yes' \"$${SERVICE_FILE}\"",
+      "  sudo sed -i \"/Delegate=yes/a ExecStartPre=$${CGROUP_SCRIPT} '$${CGROUP_PATH}'\" \"$${SERVICE_FILE}\"",
+      "  sudo sed -i '/ExecStartPre=/a # this is where babysitter and all extraneous goport procs will end up' \"$${SERVICE_FILE}\"",
+      "  sudo sed -i '/# this is where babysitter and all extraneous goport procs will end up/a DelegateSubgroup=babysitter' \"$${SERVICE_FILE}\"",
+      "  sudo systemctl daemon-reload",
+      "fi",
       "sudo systemctl disable ${local.product_service}",
-
-
       // Install and start node exporter
       "sudo wget https://github.com/prometheus/node_exporter/releases/download/v${local.node_exporter_version}/${local.node_exporter_package}.tar.gz -P /tmp/",
       "sudo tar xvfz /tmp/${local.node_exporter_package}.tar.gz -C /home/ec2-user/ --strip-components=1 ${local.node_exporter_package}/node_exporter",
