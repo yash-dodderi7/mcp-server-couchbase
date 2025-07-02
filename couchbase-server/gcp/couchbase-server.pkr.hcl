@@ -55,6 +55,9 @@ locals {
   // only inject rsyslog conf for dp-backup
   useDPBackupConf = var.dp_service == local.dp_backup_service ? local.setupDPBackupRsyslog : ""
 
+  // couchbase-server.service or enterprise-analytics.service
+  product_service = var.ns_server_profile == "analytics_provisioned" ? "enterprise-analytics" : "couchbase-server"
+
   // install & enable dp-observer
   setupDPObserver = "sudo mv /tmp/dp-observer.service /lib/systemd/system/dp-observer.service && sudo gunzip -c /tmp/dp-observer.gz > /home/ec2-user/dp-observer && sudo chmod +x /home/ec2-user/dp-observer && sudo systemctl enable dp-observer.service"
   dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
@@ -222,7 +225,7 @@ build {
       "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
       "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/chain.pem",
       "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/pkey.key",
-      "sudo systemctl disable couchbase-server",
+      "sudo systemctl disable ${local.product_service}",
 
 
       // Install and start node exporter
