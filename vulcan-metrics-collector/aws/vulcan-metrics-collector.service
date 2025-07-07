@@ -1,0 +1,20 @@
+[Unit]
+Description=Vulcan Metrics Collector
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+LimitNOFILE=1024
+
+Restart=on-failure
+RestartSec=10
+
+# CBD-6357 dev has requested to log to vulcan_dev.log instead of using journalctl
+ExecStart=/bin/bash -c "source /home/ubuntu/vulcan/.venv/bin/activate; start-vulcan-metrics-collector.sh"
+StandardOutput=file:/home/ubuntu/vulcan/vulcan_dev.log
+StandardError=file:/home/ubuntu/vulcan/vulcan_dev.log
+
+[Install]
+WantedBy=multi-user.target

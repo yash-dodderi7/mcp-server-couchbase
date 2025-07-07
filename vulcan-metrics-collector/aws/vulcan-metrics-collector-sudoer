@@ -1,0 +1,4 @@
+# Sudoers configuration for ubuntu user
+# Startup script needs to be able to update some files owned by root
+ubuntu ALL=(root) NOPASSWD: /usr/bin/tee -a /etc/environment, \
+                            /usr/bin/tee -a /etc/hosts

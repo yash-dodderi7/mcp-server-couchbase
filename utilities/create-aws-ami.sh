@@ -19,7 +19,14 @@ function usage
 
 function download_files
 {
-    curl --fail -LO ${PRODUCT_PKG_URL}
+    if [[ -n "${PRODUCT_PKG_URL}" ]]; then
+        curl --fail -LO ${PRODUCT_PKG_URL}
+    fi
+    # vulcan-core is a private repo, use gh cli to download the package
+    # GH_TOKEN is set as an environment variable
+    if [[ "${PRODUCT}" == "vulcan-metrics-collector" ]]; then
+        gh release download ${VERSION} --repo couchbaselabs/vulcan-core --pattern "metrics-collector.zip"
+    fi
     cp -rp ${WORKSPACE}/cloud-build-tools/utilities/agents .
 }
 
@@ -166,6 +173,10 @@ case ${PRODUCT} in
         PACKER_FILE="${PRODUCT}.pkr.hcl"
         PRODUCT_PKG_NAME="${PRODUCT}-${VERSION}-${BLD_NUM}-${ARCH}.tar.gz"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
+        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
+        ;;
+    vulcan-metrics-collector)
+        PACKER_FILE="${PRODUCT}.pkr.hcl"
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
         ;;
     couchbase-cloud-sync-gateway)
