@@ -63,7 +63,8 @@ locals {
   dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
 
   // configure ns_server profile
-  nsServerProfileConfig = can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
+  nsServerProfileConfig = local.product_service == "enterprise-analytics" ? "" : can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
+
 
   // arm64 and amd64 specific settings
   //   pd-standard is the default.  It is not compatible with arm64
@@ -209,27 +210,29 @@ build {
       //     ntp: ntpdate, ntpq
       "sudo apt update",
       "sudo apt install -y nmap ncat ntp lshw lsof sysstat net-tools numactl tzdata wget rsync jq",
-      // Create couchbase server
+      // Create couchbase user
       "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Setup ns_server profile
       "${local.nsServerProfileConfig}",
       "export INSTALL_DONT_START_SERVER=1",
       "sudo -E apt install -y /tmp/${var.product_pkg_name}",
       "sudo rm /tmp/${var.product_pkg_name}",
+      // enterprise-analytics is installed under /opt/enterprise-analytics
+      // couchbase-server and couchbase-columnar are installed under /opt/couchbase
+      "if [ ${local.product_service} = \"enterprise-analytics\" ]; then BASE_DIR=\"/opt/${local.product_service}\"; else BASE_DIR=\"/opt/couchbase\"; fi",
       // Setup the directory for the TLS certificate and key
-      "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",
-      "sudo touch /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
-      "sudo touch /opt/couchbase/var/lib/couchbase/inbox/chain.pem",
-      "sudo touch /opt/couchbase/var/lib/couchbase/inbox/pkey.key",
-      "sudo chown -R ec2-user:couchbase /opt/couchbase/var/lib/couchbase/inbox/",
-      "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
-      "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/chain.pem",
-      "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/pkey.key",
+      "sudo mkdir -p $${BASE_DIR}/var/lib/couchbase/inbox/CA/",
+      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/CA/ca.pem",
+      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/chain.pem",
+      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/pkey.key",
+      "sudo chown -R ec2-user:couchbase $${BASE_DIR}/var/lib/couchbase/inbox/",
+      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/CA/ca.pem",
+      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/chain.pem",
+      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/pkey.key",
       // Configure systemd service with cgroup delegation
       // This applies to couchbase-server 8.0.0 and above.
       // create-provisioned-cgroups.sh only exists in 8.0 and above
       // If this file doesn't exist, we skip changing service file
-      "if [ ${local.product_service} = \"couchbase-server\" ]; then BASE_DIR=\"/opt/couchbase\"; else BASE_DIR=\"/opt/${local.product_service}\"; fi",
       "if [ -f $${BASE_DIR}/bin/create-provisioned-cgroups.sh ]; then",
       "  SERVICE_FILE=\"/usr/lib/systemd/system/${local.product_service}.service\"",
       "  CGROUP_PATH=\"/sys/fs/cgroup/system.slice/${local.product_service}.service/\"",

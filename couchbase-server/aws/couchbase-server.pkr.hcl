@@ -43,7 +43,8 @@ locals {
   dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
 
   // configure ns_server profile
-  nsServerProfileConfig = can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
+  nsServerProfileConfig = local.product_service == "enterprise-analytics" ? "" : can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
+
 
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
   neo_source_ami_name = local.ami_arch == "arm64"  ? "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2" : "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
@@ -189,15 +190,18 @@ build {
       "export INSTALL_DONT_START_SERVER=1",
       "sudo -E yum install -y /tmp/${var.product_pkg_name}",
       "rm /tmp/${var.product_pkg_name}",
+      // enterprise-analytics is installed under /opt/enterprise-analytics
+      // couchbase-server and couchbase-columnar are installed under /opt/couchbase
+      "if [ ${local.product_service} = \"enterprise-analytics\" ]; then BASE_DIR=\"/opt/${local.product_service}\"; else BASE_DIR=\"/opt/couchbase\"; fi",
       // Setup the directory for the TLS certificate and key
-      "sudo mkdir -p /opt/couchbase/var/lib/couchbase/inbox/CA/",
-      "sudo touch /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
-      "sudo touch /opt/couchbase/var/lib/couchbase/inbox/chain.pem",
-      "sudo touch /opt/couchbase/var/lib/couchbase/inbox/pkey.key",
-      "sudo chown -R ec2-user:couchbase /opt/couchbase/var/lib/couchbase/inbox/",
-      "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/CA/ca.pem",
-      "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/chain.pem",
-      "sudo chmod 0640 /opt/couchbase/var/lib/couchbase/inbox/pkey.key",
+      "sudo mkdir -p $${BASE_DIR}/var/lib/couchbase/inbox/CA/",
+      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/CA/ca.pem",
+      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/chain.pem",
+      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/pkey.key",
+      "sudo chown -R ec2-user:couchbase $${BASE_DIR}/var/lib/couchbase/inbox/",
+      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/CA/ca.pem",
+      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/chain.pem",
+      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/pkey.key",
       "sudo systemctl disable ${local.product_service}",
       // Install and start node exporter
       "sudo wget https://github.com/prometheus/node_exporter/releases/download/v${local.node_exporter_version}/${local.node_exporter_package}.tar.gz -P /tmp/",
