@@ -1,18 +1,18 @@
 [Unit]
 Description=Node exporter exporting Prometheus metrics regarding the node
 After=network.target
- 
+
 [Service]
 Type=simple
-User=ec2-user
-Group=ec2-user
+User=ubuntu
+Group=ubuntu
 LimitNOFILE=1024
 
 Restart=on-failure
 RestartSec=10
 
-WorkingDirectory=/home/ec2-user
-ExecStart=/home/ec2-user/node_exporter \
+WorkingDirectory=/home/ubuntu
+ExecStart=/home/ubuntu/node_exporter \
                 --collector.disable-defaults \
                 --collector.cpu \
                 --collector.diskstats \
@@ -37,6 +37,6 @@ ExecStartPre=/usr/bin/chmod 755 /var/log/node-exporter
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=node-exporter
- 
+
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target
