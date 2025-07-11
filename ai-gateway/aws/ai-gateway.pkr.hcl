@@ -25,7 +25,7 @@ variable "agent_sha" {
 
 locals {
   product                  = "ai-gateway"
-  ami_name                 = var.ami_name != "" ? var.ami_name : "ai-gateway-${var.product_version}-${local.arch}"
+  ami_name                 = var.ami_name != "" ? var.ami_name : "${local.product}-${var.product_version}-${var.product_bld_num}-${var.product_arch}"
   source_ami_name          = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${var.product_arch}-server*"
   instance_type            = var.product_arch == "arm64" ? "t4g.micro" : "t2.micro"
   process-exporter_version = "0.8.7"
@@ -51,12 +51,12 @@ source "amazon-ebs" "cc" {
   tags = {
     owner         = "couchbase-capella"
     creator       = "build-team"
-    version       = "${var.product_version}"
+    version       = "${var.product_version}-${var.product_bld_num}"
   }
   snapshot_tags = {
     owner         = "couchbase-capella"
     creator       = "build-team"
-    version       = "${var.product_version}"
+    version       = "${var.product_version}-${var.product_bld_num}"
   }
   ssh_username = "ubuntu"
 }
