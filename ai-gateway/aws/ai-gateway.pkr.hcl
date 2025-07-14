@@ -46,16 +46,18 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["amazon"]
+    owners      = ["099720109477"] // Canonical
   }
   tags = {
     owner         = "couchbase-capella"
     creator       = "build-team"
+    arch          = "${var.product_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
   }
   snapshot_tags = {
     owner         = "couchbase-capella"
     creator       = "build-team"
+    arch          = "${var.product_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
   }
   ssh_username = "ubuntu"
@@ -74,9 +76,7 @@ build {
       "dp-observer.service",
       "node-exporter.service",
       "process-exporter.service",
-      "journald.conf",
-      "iptables-firewall.sh",
-      "dp-firewall.service"
+      "journald.conf"
     ]
   }
 

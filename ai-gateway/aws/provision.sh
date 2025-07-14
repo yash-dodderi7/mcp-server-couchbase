@@ -26,16 +26,10 @@ mv /tmp/${PRODUCT}.service /lib/systemd/system/${PRODUCT}.service
 mv /tmp/${PRODUCT_PKG_NAME} /home/ubuntu/. && gunzip /home/ubuntu/${PRODUCT_PKG_NAME}
 echo ${VERSION}-${BLD_NUM} > /home/ubuntu/version.txt
 chown ubuntu:ubuntu /home/ubuntu/${PRODUCT_PKG_NAME%.*}
+chmod +x /home/ubuntu/${PRODUCT_PKG_NAME%.*}
 chown ubuntu:ubuntu /home/ubuntu/version.txt
 sudo -u ubuntu ln -s /home/ubuntu/${PRODUCT_PKG_NAME%.*} /home/ubuntu/${PRODUCT} && chmod 755 /home/ubuntu/${PRODUCT}
 systemctl enable ${PRODUCT}.service
-
-# Install firewall service
-mv /tmp/dp-firewall.service /lib/systemd/system/dp-firewall.service
-mv /tmp/iptables-firewall.sh /home/ubuntu
-chmod +x /home/ubuntu/iptables-firewall.sh
-chown root:root /home/ubuntu/iptables-firewall.sh
-systemctl enable dp-firewall.service
 
 # install & enable dp-observer
 mv /tmp/dp-observer.service /lib/systemd/system/dp-observer.service
