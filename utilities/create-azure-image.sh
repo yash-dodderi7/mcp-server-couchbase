@@ -128,7 +128,7 @@ fi
 # Only call get_regions if is not already defined
 if [ -z "${AZURE_REPLICATION_REGIONS}" ]; then
     echo "Fetching supported azure regions for AZURE_REPLICATION_REGIONS from get_regions..."
-    REPLICATION_REGIONS=$(python3 ${SCRIPT_DIR}/couchbase_cloud_azure.py get_regions --env ${ENV})
+    AZURE_REPLICATION_REGIONS=$(python3 ${SCRIPT_DIR}/couchbase_cloud_azure.py get_regions --env ${ENV})
 else
     # Validate JSON array format
     if echo "${AZURE_REPLICATION_REGIONS}" | jq -e 'type == "array" and all(type == "string")' > /dev/null; then
