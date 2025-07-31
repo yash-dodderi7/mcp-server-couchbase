@@ -44,7 +44,7 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["amazon"]
+    owners      = ["099720109477"] // Canonical
   }
   tags = {
     owner         = "couchbase-capella"

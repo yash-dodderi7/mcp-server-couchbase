@@ -107,7 +107,20 @@ AWS_SHARED_CREDENTIALS_FILE=${AWS_SHARED_CREDENTIALS_FILE:-"${SCRIPT_DIR}/.aws/c
 AWS_CONFIG_FILE=${AWS_CONFIG_FILE:-"${SCRIPT_DIR}/.aws/config"}
 
 AWS_REGION=${AWS_REGION:-"us-east-1"}
-AMI_REGIONS=$(python3 couchbase_cloud_aws.py get_regions | sed "s/'/\"/g")
+# Only call get_regions if AMI_REGIONS is not already defined
+if [ -z "${AMI_REGIONS}" ]; then
+    echo "Fetching AMI_REGIONS from get_regions..."
+    AMI_REGIONS=$(python3 couchbase_cloud_aws.py get_regions | sed "s/'/\"/g")
+else
+    # Validate JSON array format
+    if echo "${AMI_REGIONS}" | jq -e 'type == "array" and all(type == "string")' > /dev/null; then
+        echo "Using predefined AMI_REGIONS: ${AMI_REGIONS}"
+    else
+        echo "ERROR: AMI_REGIONS must be an array of quoted strings"
+        echo "Expected: AMI_REGIONS='[\"us-west-1\", \"us-west-2\"]'"
+        exit 1
+    fi
+fi
 
 OPTIND=1
 while getopts a:b:d:e:g:p:r:v: opt
@@ -187,7 +200,7 @@ case ${PRODUCT} in
         ;;
     *)
         echo "${PRODUCT} is not supported"
-        exit -1
+        exit 1
         ;;
 esac
 

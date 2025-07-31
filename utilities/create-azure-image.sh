@@ -47,7 +47,7 @@ export PKR_VAR_image_name=${IMAGE_NAME}
 export PKR_VAR_image_version=${IMAGE_VERSION}
 export PKR_VAR_agent_sha=${AGENT_SHA}
 export PKR_VAR_region=${REGION}
-export PKR_VAR_replication_regions='${REPLICATION_REGIONS}'
+export PKR_VAR_replication_regions='${AZURE_REPLICATION_REGIONS}'
 EOT
 
     #packer variables specific for couchbase-server
@@ -125,7 +125,20 @@ if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${VERSION} || -z ${BLD_NUM} ]]; then
     usage
 fi
 
-REPLICATION_REGIONS=$(python3 ${SCRIPT_DIR}/couchbase_cloud_azure.py get_regions --env ${ENV})
+# Only call get_regions if is not already defined
+if [ -z "${AZURE_REPLICATION_REGIONS}" ]; then
+    echo "Fetching supported azure regions for AZURE_REPLICATION_REGIONS from get_regions..."
+    REPLICATION_REGIONS=$(python3 ${SCRIPT_DIR}/couchbase_cloud_azure.py get_regions --env ${ENV})
+else
+    # Validate JSON array format
+    if echo "${AZURE_REPLICATION_REGIONS}" | jq -e 'type == "array" and all(type == "string")' > /dev/null; then
+        echo "Using predefined AZURE_REPLICATION_REGIONS: ${AZURE_REPLICATION_REGIONS}"
+    else
+        echo "ERROR: AZURE_REPLICATION_REGIONS must be an array of quoted strings"
+        echo "Expected: AZURE_REPLICATION_REGIONS='[\"eastus\", \"westus2\"]'"
+        exit 1
+    fi
+fi
 CLIENT_ID=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.azure.CLIENT_ID)
 SUBSCRIPTION_ID=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.azure.SUBSCRIPTION_ID)
 TENANT_ID=$(cat ${SCRIPT_DIR}/environments.json |jq -r .${ENV}.azure.TENENT_ID)

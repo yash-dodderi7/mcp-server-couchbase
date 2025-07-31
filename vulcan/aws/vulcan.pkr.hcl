@@ -51,7 +51,7 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["amazon"]
+    owners      = ["099720109477"] // Canonical
   }
   launch_block_device_mappings {
     device_name = "/dev/sda1"
