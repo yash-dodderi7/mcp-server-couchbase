@@ -6,8 +6,14 @@ chmod 755 /etc/systemd/journald.conf
 # Set swappiness to 1 to avoid swapping excessively
 echo "vm.swappiness = 1" >> /etc/sysctl.conf
 
-# Install and start docker service
+# run unattended-upgrade to apply kernel and security patches
+# then disable it so that it so that it doesn't cause unexpected side effect in production
 apt update
+unattended-upgrade
+systemctl disable --now unattended-upgrades.service
+sed -i 's/^APT::Periodic::Unattended-Upgrade\s*"\?1"\?;/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades
+
+# Install and start docker service
 apt install docker-ce -y
 usermod -a -G docker ubuntu
 systemctl start docker

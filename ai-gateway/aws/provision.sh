@@ -2,7 +2,13 @@
 
 mv /tmp/journald.conf /etc/systemd/journald.conf
 chmod 755 /etc/systemd/journald.conf
-apt-get update
+
+# run unattended-upgrade to apply kernel and security patches
+# then disable it so that it so that it doesn't cause unexpected side effect in production
+apt update
+unattended-upgrade
+systemctl disable --now unattended-upgrades.service
+sed -i 's/^APT::Periodic::Unattended-Upgrade\s*"\?1"\?;/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades
 
 # Install and start node exporter
 wget "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/${NODE_EXPORTER_PACKAGE}.tar.gz" -P /tmp/

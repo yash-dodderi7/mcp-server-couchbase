@@ -135,7 +135,14 @@ build {
       "sudo sh -c 'echo \"vm.swappiness = 0\" >> /etc/sysctl.conf'",
       "sudo sysctl vm.swappiness=0",
       // Install dependent packages:
+      "sudo apt update",
       "sudo apt install -y bzip2 curl gpg wget rsync",
+      // run unattended-upgrade to apply kernel and security patches
+      // then disable it so that it so that it doesn't cause unexpected side effect in production
+      "sudo unattended-upgrade",
+      "sudo systemctl disable --now unattended-upgrades.service",
+      "sudo sed -i 's/^APT::Periodic::Unattended-Upgrade\\s*\"\\?1\"\\?;/APT::Periodic::Unattended-Upgrade \"0\";/' /etc/apt/apt.conf.d/20auto-upgrades",
+
       "sudo apt install -y /tmp/${var.product_pkg_name}",
       "sudo rm /tmp/${var.product_pkg_name}",
 

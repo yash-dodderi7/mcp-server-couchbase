@@ -142,6 +142,12 @@ build {
       // Install dependent packages:
       "sudo apt update",
       "sudo apt install -y bzip2 wget rsync",
+      // run unattended-upgrade to apply kernel and security patches
+      // then disable it so that it so that it doesn't cause unexpected side effect in production
+      "sudo unattended-upgrade",
+      "sudo systemctl disable --now unattended-upgrades.service",
+      "sudo sed -i 's/^APT::Periodic::Unattended-Upgrade\\s*\"\\?1\"\\?;/APT::Periodic::Unattended-Upgrade \"0\";/' /etc/apt/apt.conf.d/20auto-upgrades",
+
       "sudo apt install -y /tmp/${var.product_pkg_name}",
       "sudo rm /tmp/${var.product_pkg_name}",
       // Remove the default startup config.

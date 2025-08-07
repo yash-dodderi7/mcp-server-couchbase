@@ -3,7 +3,13 @@
 sudo mv /tmp/journald.conf /etc/systemd/journald.conf
 sudo chown root:root /etc/systemd/journald.conf
 sudo chmod 755 /etc/systemd/journald.conf
-sudo apt-get update
+
+# run unattended-upgrade to apply kernel and security patches
+# then disable it so that it so that it doesn't cause unexpected side effect in production
+sudo apt update
+sudo unattended-upgrade
+sudo systemctl disable --now unattended-upgrades.service
+sudo sed -i 's/^APT::Periodic::Unattended-Upgrade\s*"\?1"\?;/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades
 
 # Install dependent packages
 sudo apt-get install -y unzip

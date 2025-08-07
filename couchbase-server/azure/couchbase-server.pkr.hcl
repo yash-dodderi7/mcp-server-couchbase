@@ -222,6 +222,12 @@ build {
       //     ntp: ntpdate, ntpq
       "sudo apt update",
       "sudo apt install -y nmap ncat ntp lshw lsof sysstat net-tools numactl tzdata wget rsync jq",
+      // run unattended-upgrade to apply kernel and security patches
+      // then disable it so that it so that it doesn't cause unexpected side effect in production
+      "sudo unattended-upgrade",
+      "sudo systemctl disable --now unattended-upgrades.service",
+      "sudo sed -i 's/^APT::Periodic::Unattended-Upgrade\\s*\"\\?1\"\\?;/APT::Periodic::Unattended-Upgrade \"0\";/' /etc/apt/apt.conf.d/20auto-upgrades",
+
       // Create couchbase user
       "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
       // Setup ns_server profile
