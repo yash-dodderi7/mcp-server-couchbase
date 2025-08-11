@@ -1,3 +1,11 @@
+packer {
+  required_plugins {
+    amazon = {
+      version = ">= 1.3.10"
+      source = "github.com/hashicorp/amazon"
+    }
+  }
+}
 variable "product_version" {
   type = string
 }

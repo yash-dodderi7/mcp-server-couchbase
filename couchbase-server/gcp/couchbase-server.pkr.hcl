@@ -1,7 +1,7 @@
 packer {
   required_plugins {
     googlecompute = {
-      version = ">= 1.0.0"
+      version = ">= 1.2.2"
       source = "github.com/hashicorp/googlecompute"
     }
   }

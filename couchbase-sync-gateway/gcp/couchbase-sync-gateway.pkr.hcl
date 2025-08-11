@@ -1,8 +1,8 @@
 packer {
   required_plugins {
-    windows-update = {
-      version = "0.14.1"
-      source  = "github.com/rgl/windows-update"
+    googlecompute = {
+      version = ">= 1.2.2"
+      source = "github.com/hashicorp/googlecompute"
     }
   }
 }
