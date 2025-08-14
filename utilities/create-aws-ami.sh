@@ -192,6 +192,10 @@ case ${PRODUCT} in
         PACKER_FILE="${PRODUCT}.pkr.hcl"
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
         ;;
+    dp-runtime-agent)
+        PACKER_FILE="${PRODUCT}.pkr.hcl"
+        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
+        ;;
     couchbase-cloud-sync-gateway)
         PACKER_FILE="couchbase-sync-gateway.pkr.hcl"
         PRODUCT_PKG_NAME="couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.deb"

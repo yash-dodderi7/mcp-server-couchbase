@@ -1,0 +1,23 @@
+[Unit]
+Description=Dataplane Runtime Agent
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+LimitNOFILE=1024
+
+Restart=on-failure
+RestartSec=10
+
+WorkingDirectory=/home/ubuntu
+ExecStart=dp-runtime-agent
+PermissionsStartOnly=true
+
+# log with journald
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target
