@@ -1,18 +1,16 @@
-variable "product_version" {
-  type = string
+packer {
+  required_plugins {
+    amazon = {
+      version = ">= 1.3.10"
+      source = "github.com/hashicorp/amazon"
+    }
+  }
 }
-variable "product_bld_num" {
-  type = string
-}
-variable "ami_name" {
-  type = string
-}
-variable "region" {
-  type = string
-}
-variable "ami_regions" {
-  type = list(string)
-}
+variable "product_version" { type = string }
+variable "product_bld_num" { type = string }
+variable "ami_name" { type = string }
+variable "region" { type = string }
+variable "ami_regions" { type = list(string) }
 
 locals {
   product_name    = "dp-runtime-agent"
@@ -34,7 +32,7 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["amazon"]
+    owners      = ["099720109477"] // Canonical
   }
   tags = {
     owner         = "couchbase-capella"
@@ -51,27 +49,15 @@ source "amazon-ebs" "cc" {
 
 build {
   sources = ["source.amazon-ebs.cc"]
-
   provisioner "file" {
     destination = "/tmp/"
-    source      = "agents/${local.product_arch}/${local.product_name}"
+    sources     = [
+      "agents/${local.product_arch}/${local.product_name}.gz",
+      "${local.product_name}.service",
+      "journald.conf",
+      "provision.sh"
+    ]
   }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "${local.product_name}.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/journald.conf"
-    source = "journald.conf"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/provision.sh"
-    source = "provision.sh"
-  }
-
   provisioner "shell" {
     pause_before = "5s"
     script = "provision.sh"
