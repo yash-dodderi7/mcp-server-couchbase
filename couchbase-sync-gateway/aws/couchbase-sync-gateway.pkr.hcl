@@ -162,6 +162,7 @@ build {
       "sudo usermod -a -G ec2-user sync_gateway && sudo usermod -a -G systemd-journal sync_gateway",
 
       "sudo usermod -a -G sync_gateway ec2-user",
+      "sudo usermod -a -G systemd-journal ec2-user",
       "sudo chmod 770 /home/sync_gateway/",
 
       // Remove the default startup config.
