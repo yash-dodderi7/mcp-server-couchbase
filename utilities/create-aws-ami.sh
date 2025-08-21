@@ -55,11 +55,7 @@ EOT
     #packer variables specific for couchbase-server
     case ${PRODUCT} in
         couchbase-columnar)
-            if [[ "${VERSION}" == 1.0.* || "${VERSION}" == 1.1.* ]]; then
-                echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            else
-                echo "export PKR_VAR_ns_server_profile=analytics_provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            fi
+            echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         enterprise-analytics)
@@ -165,12 +161,21 @@ case ${PRODUCT} in
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         ;;
     couchbase-columnar)
-        PACKER_FILE="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_NAME="${PRODUCT}-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
-        cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
+        if [[ "${VERSION}" == 1.0.* || "${VERSION}" == 1.1.* ]]; then
+            PACKER_FILE="couchbase-server.pkr.hcl"
+            PRODUCT_PKG_NAME="${PRODUCT}-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+            PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
+            cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
+        else
+            echo "ERROR: couchbase-columnar does not support version ${VERSION}"
+            exit 1
+        fi
         ;;
     enterprise-analytics)
+        if [[ "${VERSION}" == 1.* ]]; then
+            echo "ERROR: enterprise-analytics only supports version 2.0 or higher, got ${VERSION}"
+            exit 1
+        fi
         PACKER_FILE="couchbase-server.pkr.hcl"
         PRODUCT_PKG_NAME="${PRODUCT}-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"

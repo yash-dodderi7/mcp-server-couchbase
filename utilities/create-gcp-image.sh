@@ -57,11 +57,7 @@ EOT
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         couchbase-columnar)
-            if [[ "${VERSION}" == 1.0.* || "${VERSION}" == 1.1.* ]]; then
-                echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
-            else
-                echo "export PKR_VAR_ns_server_profile=analytics_provisioned" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
-            fi
+            echo "export PKR_VAR_ns_server_profile=columnar" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
             echo "export PKR_VAR_dp_service=dp-agent" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         enterprise-analytics)
@@ -152,12 +148,21 @@ case ${PRODUCT} in
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/gcp
         ;;
     couchbase-columnar)
-        PACKER_FILE="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_NAME="${PRODUCT}-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
-        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
-        cd ${WORKSPACE}/cloud-build-tools/couchbase-server/gcp
+        if [[ "${VERSION}" == 1.0.* || "${VERSION}" == 1.1.* ]]; then
+            PACKER_FILE="couchbase-server.pkr.hcl"
+            PRODUCT_PKG_NAME="${PRODUCT}-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
+            PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
+            cd ${WORKSPACE}/cloud-build-tools/couchbase-server/gcp
+        else
+            echo "ERROR: couchbase-columnar does not support version ${VERSION}"
+            exit 1
+        fi
         ;;
     enterprise-analytics)
+        if [[ "${VERSION}" == 1.* ]]; then
+            echo "ERROR: enterprise-analytics only supports version 2.0 or higher, got ${VERSION}"
+            exit 1
+        fi
         PACKER_FILE="couchbase-server.pkr.hcl"
         PRODUCT_PKG_NAME="${PRODUCT}_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
