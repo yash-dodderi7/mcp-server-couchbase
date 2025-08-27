@@ -134,12 +134,16 @@ EOT
 }
 
 # Function to download a specific agent with a given SHA
-function download_agent() {
-    local agent=${1}  # Agent name (e.g., dp-backup, dp-agent)
-    local sha=${2}    # SHA of the agent
-    local profile=${3} # AWS Profile
-    local bucket=${4} # AWS S3 bucket
+# Get latest SHA for an agent from S3
+get_latest_sha() {
+    local agent=$1 profile=$2 bucket=$3
+    aws s3 cp --quiet s3://${bucket}/releases/${agent}/latest . --profile ${profile}
+    cat latest
+}
 
+# Download a single agent from S3
+download_agent() {
+    local agent=$1 sha=$2 profile=$3 bucket=$4
     echo "Downloading ${agent}: ${sha}"
     aws s3 cp --quiet \
         s3://${bucket}/releases/${agent}/${cloud}/${sha}/linux-${dp_arch} \
@@ -148,38 +152,29 @@ function download_agent() {
         --profile ${profile}
 }
 
-# Download dp-agent, dp-backup, and dp-observer
-function download_agents {
-    arch=${1}
-    dp_arch=${2}
-    cloud=${3}
-
-    aws_profile="dbaas-prod-0001-temp"  # Defaults aws_profile to production
-    s3_bucket="cbc-internal-release"    # Production's s3 bucket
+# Download all required agents (dp-observer, dp-agent, dp-backup)
+download_agents() {
+    local arch=$1 dp_arch=$2 cloud=$3
+    local aws_profile="dbaas-prod-0001-temp"
+    local s3_bucket="cbc-internal-release"
     mkdir -p agents/${arch}
 
-    # Always download observer from s3 bucket in prod account
-    aws s3 cp --quiet \
-        s3://${s3_bucket}/releases/dp-observer/latest . \
-        --profile ${aws_profile}
-    DP_OBSERVER_SHA=$(cat latest)
-    download_agent "dp-observer" ${DP_OBSERVER_SHA} ${aws_profile} ${s3_bucket}
+    # Always download latest observer
+    local observer_sha=$(get_latest_sha "dp-observer" ${aws_profile} ${s3_bucket})
+    download_agent "dp-observer" ${observer_sha} ${aws_profile} ${s3_bucket}
 
-    # If DP_AGENT_SHA is not set, download the latest dp-agent and dp-backup.
-    # Otherwise, download base on the specific SHA
-    if [[ -z "${DP_AGENT_SHA}" ]]; then
-        for agent in dp-backup dp-agent; do
-            aws s3 cp --quiet \
-                s3://${s3_bucket}/releases/${agent}/latest . \
-                --profile ${aws_profile}
-            export DP_AGENT_SHA=$(cat latest)
-            download_agent ${agent} ${DP_AGENT_SHA} ${aws_profile} ${s3_bucket}
-        done
-    else
-        for agent in dp-backup dp-agent; do
-            download_agent ${agent} ${DP_AGENT_SHA} ${aws_profile} ${s3_bucket}
-        done
-    fi
+    # Download dp-agent and dp-backup (use provided SHA or get latest)
+    local agents=("dp-agent:DP_AGENT_SHA" "dp-backup:DP_BACKUP_SHA")
+    for agent_info in "${agents[@]}"; do
+        local agent="${agent_info%:*}"
+        local sha_var="${agent_info#*:}"
+        local sha="${!sha_var}"
+        if [[ -z "${sha}" ]]; then
+            sha=$(get_latest_sha "${agent}" ${aws_profile} ${s3_bucket})
+            export ${sha_var}="${sha}"
+        fi
+        download_agent "${agent}" "${sha}" ${aws_profile} ${s3_bucket}
+    done
 }
 
 # Determine the latest available Golang version based on an input version
