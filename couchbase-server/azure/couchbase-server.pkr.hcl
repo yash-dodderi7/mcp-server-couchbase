@@ -227,6 +227,9 @@ build {
       "sudo unattended-upgrade",
       "sudo systemctl disable --now unattended-upgrades.service",
       "sudo sed -i 's/^APT::Periodic::Unattended-Upgrade\\s*\"\\?1\"\\?;/APT::Periodic::Unattended-Upgrade \"0\";/' /etc/apt/apt.conf.d/20auto-upgrades",
+      // MB-68110 disable kernel.split_lock
+      "sudo sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"split_lock_detect=off /' /etc/default/grub",
+      "sudo update-grub",
 
       // Create couchbase user
       "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
