@@ -12,7 +12,7 @@ Restart=on-failure
 RestartSec=10
 
 WorkingDirectory=/home/ubuntu
-ExecStart=dp-runtime-agent
+ExecStart=/home/ubuntu/dp-runtime-agent
 PermissionsStartOnly=true
 
 # log with journald
