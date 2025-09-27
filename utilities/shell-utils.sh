@@ -152,16 +152,18 @@ download_agent() {
         --profile ${profile}
 }
 
-# Download all required agents (dp-observer, dp-agent, dp-backup)
+# Download all required agents (dp-runtime-agent, dp-observer, dp-agent, dp-backup)
 download_agents() {
     local arch=$1 dp_arch=$2 cloud=$3
     local aws_profile="dbaas-prod-0001-temp"
     local s3_bucket="cbc-internal-release"
     mkdir -p agents/${arch}
 
-    # Always download latest observer
+    # Always download latest observer and runtime-agent
     local observer_sha=$(get_latest_sha "dp-observer" ${aws_profile} ${s3_bucket})
     download_agent "dp-observer" ${observer_sha} ${aws_profile} ${s3_bucket}
+    local runtime_sha=$(get_latest_sha "dp-runtime-agent" ${aws_profile} ${s3_bucket})
+    download_agent "dp-runtime-agent" ${runtime_sha} ${aws_profile} ${s3_bucket}
 
     # Download dp-agent and dp-backup (use provided SHA or get latest)
     local agents=("dp-agent:DP_AGENT_SHA" "dp-backup:DP_BACKUP_SHA")

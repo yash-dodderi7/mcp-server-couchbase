@@ -54,7 +54,6 @@ locals {
   // configure ns_server profile
   nsServerProfileConfig = can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
 
-
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
   neo_source_ami_name = local.ami_arch == "arm64"  ? "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2" : "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
   source_ami_name = can(regex("7.2", var.product_version)) ? "${local.neo_source_ami_name}" :  "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
@@ -171,6 +170,16 @@ build {
    source = "dp-firewall.service"
   }
 
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "agents/${var.product_arch}/dp-runtime-agent.gz"
+  }
+
+  provisioner "file" {
+   destination = "/tmp/dp-runtime-agent.service"
+   source = "dp-runtime-agent.service"
+  }
+
   provisioner "shell" {
     inline = [
       "sleep 10",
@@ -237,6 +246,12 @@ build {
       "sudo gunzip /home/ec2-user/${var.dp_service}.gz",
       "sudo chmod +x /home/ec2-user/${var.dp_service}",
       "sudo systemctl enable ${var.dp_service}.service",
+      // Install and enable dp-runtime-agent
+      "sudo mv /tmp/dp-runtime-agent.service /lib/systemd/system/dp-runtime-agent.service",
+      "sudo mv /tmp/dp-runtime-agent.gz /home/ec2-user",
+      "sudo gunzip /home/ec2-user/dp-runtime-agent.gz",
+      "sudo chmod +x /home/ec2-user/dp-runtime-agent",
+      "sudo systemctl enable dp-runtime-agent.service",
       // Install firewall service
       "sudo mv /tmp/dp-firewall.service /lib/systemd/system/dp-firewall.service",
       "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",
