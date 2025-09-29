@@ -1,20 +1,49 @@
 #!/bin/bash -ex
 
-# run unattended-upgrade to apply kernel and security patches
-# then disable it so that it so that it doesn't cause unexpected side effect in production
+# Install and start docker service
+# Remove docker.io in case if they are installed
+apt remove -y docker.io containerd runc || true
+apt install -y ca-certificates curl gnupg lsb-release
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+  gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+  https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
 apt update
+apt install docker-ce -y
+usermod -a -G docker ubuntu
+
+# Run unattended-upgrade to apply kernel and security patches
+# Then disable it so that it so that it doesn't cause unexpected side effect in production
 unattended-upgrade
 systemctl disable --now unattended-upgrades.service
 sed -i 's/^APT::Periodic::Unattended-Upgrade\s*"\?1"\?;/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades
 
-
+# Update journald
 mv /tmp/journald.conf /etc/systemd/journald.conf
 chown root:root /etc/systemd/journald.conf
 chmod 755 /etc/systemd/journald.conf
 
+# Start docker service
+systemctl enable --now docker
+for i in {1..60}; do
+if docker info >/dev/null 2>&1; then
+  echo "Docker daemon is running."
+  break
+else
+  sleep 1
+fi
+done
+
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker daemon is not responsive"
+  exit 1
+fi
+
 # Create couchbase user
 # dp-observer depends on this
-useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ubuntu
+useradd couchbase && usermod -a -G systemd-journal couchbase && usermod -a -G couchbase ubuntu
 
 # Install and start node exporter
 wget "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/${NODE_EXPORTER_PACKAGE}.tar.gz" -P /tmp/
