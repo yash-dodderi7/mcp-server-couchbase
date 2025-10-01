@@ -214,7 +214,7 @@ build {
       "sudo usermod -a -G ec2-user sync_gateway && sudo usermod -a -G systemd-journal sync_gateway",
       "sudo usermod -a -G systemd-journal ec2-user",
       // Install fluent-bit
-      "curl https://packages.fluentbit.io/fluentbit.key | gpg --dearmor | sudo tee /usr/share/keyrings/fluentbit-keyring.gpg",
+      "curl -fsSL https://packages.fluentbit.io/fluentbit.key | gpg --dearmor | sudo tee /usr/share/keyrings/fluentbit-keyring.gpg > /dev/null",
       "echo \"deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/ubuntu/noble noble main\" | sudo tee -a /etc/apt/sources.list",
       "sudo apt-get update",
       "sudo apt-get install -y fluent-bit",
