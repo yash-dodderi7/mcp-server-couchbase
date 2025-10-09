@@ -61,9 +61,6 @@ variable "agent_sha" {
 
 locals {
   dp_backup_service = "dp-backup"
-  setupDPBackupRsyslog = "sudo sh -c 'mv /tmp/dp-backup.conf /etc/rsyslog.d/dp-backup.conf && sudo systemctl restart rsyslog'"
-  // only inject rsyslog conf for dp-backup
-  useDPBackupConf = var.dp_service == local.dp_backup_service ? local.setupDPBackupRsyslog : ""
 
   // couchbase-server.service or enterprise-analytics.service
   product_service = var.ns_server_profile == "analytics_provisioned" ? "enterprise-analytics" : "couchbase-server"
@@ -176,11 +173,6 @@ build {
   }
 
   provisioner "file" {
-    destination = "/tmp/dp-backup.conf"
-    source      = "dp-backup.conf"
-  }
-
-  provisioner "file" {
     destination = "/tmp/journald.conf"
     source      = "journald.conf"
   }
@@ -286,8 +278,6 @@ build {
       // Add imports directory
       "sudo mkdir -p /home/ec2-user/imports",
       "sudo chown ec2-user:ec2-user /home/ec2-user/imports",
-      // Setup Rsyslog conf for dp-backup
-      "${local.useDPBackupConf}",
       // Install & configure dp-observer
       "${local.dPObserverConfig}",
       "sudo rm -f /tmp/dp-observer*"
