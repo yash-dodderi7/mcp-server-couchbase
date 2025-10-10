@@ -12,7 +12,7 @@ sudo systemctl disable --now unattended-upgrades.service
 sudo sed -i 's/^APT::Periodic::Unattended-Upgrade\s*"\?1"\?;/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades
 
 # Install dependent packages
-sudo apt-get install -y unzip
+sudo apt-get install -y jq unzip wget
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 
