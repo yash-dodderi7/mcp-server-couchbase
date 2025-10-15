@@ -79,9 +79,12 @@ if echo "$USER_DATA" | jq . >/dev/null 2>&1; then
     else
         echo "Not updating /etc/hosts since EXTRA_HOSTS is not available."
     fi
+    
+    echo "Starting dns-refresher service..."
+    sudo dns-refresher > /home/ubuntu/vulcan/vulcan_dns_refresher_service.log 2>&1 &
 
-    # Start Metrics Collector service
-    metrics-collector
+    echo "Starting metrics-collector service..."
+    metrics-collector > /home/ubuntu/vulcan/vulcan_metrics_collector_service.log 2>&1 &
 else
     echo "User data is not a valid JSON:"
     echo "$USER_DATA"
