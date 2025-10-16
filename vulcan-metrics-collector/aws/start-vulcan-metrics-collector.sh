@@ -81,10 +81,15 @@ if echo "$USER_DATA" | jq . >/dev/null 2>&1; then
     fi
     
     echo "Starting dns-refresher service..."
-    sudo dns-refresher > /home/ubuntu/vulcan/vulcan_dns_refresher_service.log 2>&1 &
+    # Use sudo to run dns-refresher with elevated privileges,
+    # so it can update /etc/hosts, while passing the current environment variable (VULCAN_WORKFLOW_INPUT).
+    VULCAN_DIR=/home/ubuntu/vulcan
+    sudo VULCAN_WORKFLOW_INPUT="$VULCAN_WORKFLOW_INPUT" \
+        $VULCAN_DIR/.venv/bin/dns-refresher \
+        > $VULCAN_DIR/vulcan_dns_refresher_service.log 2>&1 &
 
     echo "Starting metrics-collector service..."
-    metrics-collector > /home/ubuntu/vulcan/vulcan_metrics_collector_service.log 2>&1 &
+    metrics-collector
 else
     echo "User data is not a valid JSON:"
     echo "$USER_DATA"

@@ -36,6 +36,7 @@ mv /tmp/start-vulcan-metrics-collector.sh .venv/bin/.
 source .venv/bin/activate
 python -m ensurepip --upgrade --default-pip
 pip install *.whl
+pip install requests
 sudo mv /tmp/vulcan-metrics-collector.service /lib/systemd/system/vulcan-metrics-collector.service
 sudo systemctl enable vulcan-metrics-collector.service
 sudo chown -R ubuntu:ubuntu /home/ubuntu/vulcan
