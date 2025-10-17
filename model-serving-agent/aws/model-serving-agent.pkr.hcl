@@ -33,7 +33,7 @@ locals {
   ami_name = var.ami_name != "" ? var.ami_name : "${local.product}-${var.product_version}-${var.product_bld_num}-${var.product_arch}"
   // Use a base image with inbuilt GPU support
   // This is owned by AWS rather than Canonical
-  source_ami_name = "Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)*"
+  source_ami_name = "Deep Learning ${upper(var.product_arch)} Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)*"
   instance_type = var.product_arch == "arm64" ? "t4g.micro" : "t2.micro"
 }
 
@@ -50,7 +50,7 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["099720109477"] // Canonical
+    owners      = ["amazon"]
   }
   tags = {
     owner         = "couchbase-capella"
