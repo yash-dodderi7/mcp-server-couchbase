@@ -11,17 +11,20 @@ variable "product_bld_num" { type = string }
 variable "ami_name" { type = string }
 variable "region" { type = string }
 variable "ami_regions" { type = list(string) }
+variable "product_arch" { type = string }
 
 locals {
   product_name    = "dp-runtime-agent"
-  product_arch    = "amd64"
-  ami_name        = var.ami_name != "" ? var.ami_name : "${local.product_name}-${var.product_version}-${local.product_arch}"
-  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server*"
-  instance_type   = "t2.micro"
+  ami_name        = var.ami_name != "" ? var.ami_name : "${local.product_name}-${var.product_version}-${var.product_arch}"
   process-exporter_version = "0.8.7"
-  process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${local.product_arch}"
+  process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${var.product_arch}"
   node_exporter_version    = "1.9.1"
-  node_exporter_package    = "node_exporter-${local.node_exporter_version}.linux-${local.product_arch}"
+  node_exporter_package    = "node_exporter-${local.node_exporter_version}.linux-${var.product_arch}"
+
+  // Use a base image with GPU support, required by model-serving-agent
+  // This is owned by AWS rather than Canonical
+  source_ami_name = var.product_arch == "amd64" ? "Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)*" : "Deep Learning ARM64 Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)*"
+  instance_type = var.product_arch == "arm64" ? "t4g.micro" : "t2.micro"
 }
 
 source "amazon-ebs" "cc" {
@@ -36,7 +39,7 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["099720109477"] // Canonical
+    owners      = ["amazon"]
   }
   tags = {
     owner         = "couchbase-capella"
@@ -56,8 +59,8 @@ build {
   provisioner "file" {
     destination = "/tmp/"
     sources     = [
-      "agents/${local.product_arch}/${local.product_name}.gz",
-      "agents/${local.product_arch}/dp-observer.gz",
+      "agents/${var.product_arch}/${local.product_name}.gz",
+      "agents/${var.product_arch}/dp-observer.gz",
       "${local.product_name}.service",
       "dp-observer.service",
       "node-exporter.service",
