@@ -80,12 +80,11 @@ if echo "$USER_DATA" | jq . >/dev/null 2>&1; then
         echo "Not updating /etc/hosts since EXTRA_HOSTS is not available."
     fi
     
-    echo "Starting dns-refresher service..."
-    # Use sudo to run dns-refresher with elevated privileges,
-    # so it can update /etc/hosts, while passing the current environment variable (VULCAN_WORKFLOW_INPUT).
     VULCAN_DIR=/home/ubuntu/vulcan
-    sudo VULCAN_WORKFLOW_INPUT="$VULCAN_WORKFLOW_INPUT" \
-        $VULCAN_DIR/.venv/bin/dns-refresher \
+    echo "VULCAN_WORKFLOW_INPUT=\"$VULCAN_WORKFLOW_INPUT\"" | sudo tee -a /etc/environment > /dev/null
+    # Use sudo to run dns-refresher with elevated privileges, so it can update /etc/hosts
+    echo "Starting dns-refresher service..."
+    sudo $VULCAN_DIR/.venv/bin/dns-refresher \
         > $VULCAN_DIR/vulcan_dns_refresher_service.log 2>&1 &
 
     echo "Starting metrics-collector service..."
