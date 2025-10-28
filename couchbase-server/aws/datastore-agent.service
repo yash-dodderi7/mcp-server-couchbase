@@ -1,0 +1,24 @@
+[Unit]
+Description=DataStore Agent
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+LimitNOFILE=1024
+
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+
+WorkingDirectory=/home/ec2-user
+ExecStart=/home/ec2-user/datastore-agent
+PermissionsStartOnly=true
+
+# log with journald
+StandardError=journal
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

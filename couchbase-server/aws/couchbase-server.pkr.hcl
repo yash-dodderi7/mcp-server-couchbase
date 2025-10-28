@@ -6,7 +6,9 @@ packer {
     }
   }
 }
-
+variable "product_name" {
+  type = string
+}
 variable "product_pkg_name" {
   type = string
 }
@@ -172,6 +174,21 @@ build {
    source = "dp-runtime-agent.service"
   }
 
+  provisioner "file" {
+    destination = "/tmp/"
+    source      = "agents/${var.product_arch}/datastore-agent.gz"
+  }
+
+  provisioner "file" {
+   destination = "/tmp/datastore-agent.service"
+   source = "datastore-agent.service"
+  }
+
+  provisioner "file" {
+    destination = "/tmp/install-ai-services.sh"
+    source = "install-ai-services.sh"
+  }
+
   provisioner "shell" {
     inline = [
       "sleep 10",
@@ -238,12 +255,9 @@ build {
       "sudo gunzip /home/ec2-user/${var.dp_service}.gz",
       "sudo chmod +x /home/ec2-user/${var.dp_service}",
       "sudo systemctl enable ${var.dp_service}.service",
-      // Install and enable dp-runtime-agent
-      "sudo mv /tmp/dp-runtime-agent.service /lib/systemd/system/dp-runtime-agent.service",
-      "sudo mv /tmp/dp-runtime-agent.gz /home/ec2-user",
-      "sudo gunzip /home/ec2-user/dp-runtime-agent.gz",
-      "sudo chmod +x /home/ec2-user/dp-runtime-agent",
-      "sudo systemctl enable dp-runtime-agent.service",
+      // Conditionally install and enable dp-runtime-agent and datastore-agent
+      "sudo chmod +x /tmp/install-ai-services.sh",
+      "sudo /tmp/install-ai-services.sh ${var.product_name}",
       // Install firewall service
       "sudo mv /tmp/dp-firewall.service /lib/systemd/system/dp-firewall.service",
       "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",
@@ -256,7 +270,9 @@ build {
       "sudo chown ec2-user:ec2-user /home/ec2-user/imports",
       // Install & configure dp-observer
       "${local.dPObserverConfig}",
-      "sudo rm -f /tmp/dp-observer*"
+      "sudo rm -f /tmp/dp-observer*",
+      // Cleanup leftover temp files
+      "sudo rm -f /tmp/*.gz /tmp/*.service"
     ]
   }
 }

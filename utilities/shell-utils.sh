@@ -164,6 +164,8 @@ download_agents() {
     download_agent "dp-observer" ${observer_sha} ${aws_profile} ${s3_bucket}
     local runtime_sha=$(get_latest_sha "dp-runtime-agent" ${aws_profile} ${s3_bucket})
     download_agent "dp-runtime-agent" ${runtime_sha} ${aws_profile} ${s3_bucket}
+    local datastore_sha=$(get_latest_sha "datastore-agent" ${aws_profile} ${s3_bucket})
+    download_agent "datastore-agent" ${datastore_sha} ${aws_profile} ${s3_bucket}
 
     # Download dp-agent and dp-backup (use provided SHA or get latest)
     local agents=("dp-agent:DP_AGENT_SHA" "dp-backup:DP_BACKUP_SHA")

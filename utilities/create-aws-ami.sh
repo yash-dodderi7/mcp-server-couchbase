@@ -44,6 +44,7 @@ rm .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
 cat <<EOT >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
 export PKR_VAR_region=${AWS_REGION}
 export PKR_VAR_ami_regions='${AMI_REGIONS}'
+export PKR_VAR_product_name=${PRODUCT}
 export PKR_VAR_product_pkg_name=${PRODUCT_PKG_NAME}
 export PKR_VAR_product_version=${VERSION}
 export PKR_VAR_product_bld_num=${BLD_NUM}
@@ -69,6 +70,10 @@ EOT
         couchbase-cloud-backup*)
             echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+           ;;
+        datastore-agent*)
+            echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         *)
            ;;
@@ -206,6 +211,15 @@ case ${PRODUCT} in
         PRODUCT_PKG_NAME="couchbase-sync-gateway-enterprise_${VERSION}-${BLD_NUM}_${ARCH}.deb"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/sync_gateway/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-sync-gateway/aws
+        ;;
+    # In AI 1.0.0 release AV-114089, an one-off datastore-agent AMI is generated.
+    # In subsequent release, dp-runtime-agent will be able to manage datastore-agent.
+    # Hence, the same couchbase-server AMI will be used by AI to deploy for datastore service.
+    datastore-agent)
+        PACKER_FILE="couchbase-server.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
+        cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         ;;
     *)
         echo "${PRODUCT} is not supported"
