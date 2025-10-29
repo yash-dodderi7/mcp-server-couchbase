@@ -257,7 +257,7 @@ build {
       "sudo systemctl enable ${var.dp_service}.service",
       // Conditionally install and enable dp-runtime-agent and datastore-agent
       "sudo chmod +x /tmp/install-ai-services.sh",
-      "sudo /tmp/install-ai-services.sh ${var.product_name}",
+      "sudo /tmp/install-ai-services.sh ${var.product_name} ${var.product_version}",
       // Install firewall service
       "sudo mv /tmp/dp-firewall.service /lib/systemd/system/dp-firewall.service",
       "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",

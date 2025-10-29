@@ -19,7 +19,7 @@ product_version=$2
 min_version="8.0.0"
 
 case "$product_name" in
-    "couchbase-server")
+    "couchbase-cloud-server")
         if [[ "$(printf '%s\n' "$min_version" "$product_version" | sort -V | head -n1)" == "$min_version" ]]; then
             install_agent "dp-runtime-agent"
         fi
