@@ -1,6 +1,6 @@
 # systemd version 219 installed on nodes
 [Unit]
-Description=DP Observer for Couchbase Capella Nodes
+Description=Pushgateway for accepting push metrics from AI services
 After=network.target
 
 [Service]
@@ -15,7 +15,7 @@ Restart=always
 RestartSec=10
 
 WorkingDirectory=/home/ec2-user
-ExecStart=/home/ec2-user/dp-observer
+ExecStart=/home/ec2-user/pushgateway --web.config.file /etc/prometheus/pushgateway.yaml
 PermissionsStartOnly=true
 
 # log with journald
@@ -23,4 +23,4 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target

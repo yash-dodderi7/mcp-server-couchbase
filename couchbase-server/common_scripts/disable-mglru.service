@@ -1,0 +1,12 @@
+[Unit]
+Description=Disable Multi-Gen LRU (MGLRU)
+DefaultDependencies=no
+After=local-fs.target sysinit.target
+ConditionPathExists=/sys/kernel/mm/lru_gen/enabled
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo 0 > /sys/kernel/mm/lru_gen/enabled'
+
+[Install]
+WantedBy=multi-user.target

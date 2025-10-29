@@ -6,65 +6,23 @@ packer {
     }
   }
 }
-variable "product_name" {
-  type = string
-}
-variable "product_pkg_name" {
-  type = string
-}
-variable "product_version" {
-  type = string
-}
-variable "product_bld_num" {
-  type = string
-}
-variable "ami_name" {
-  type = string
-}
-variable "region" {
-  type = string
-}
-variable "ami_regions" {
-  type = list(string)
-}
-variable "dp_service" {
-  type = string
-}
-variable "ns_server_profile" {
-  type = string
-}
-variable "product_arch" {
-  type = string
-}
-variable "agent_sha" {
-  type = string
-}
+variable "product_pkg_name" { type = string }
+variable "product_version" { type = string }
+variable "product_bld_num" { type = string }
+variable "ns_server_profile" { type = string }
+variable "product_arch" { type = string }
+variable "dp_service" { type = string }
+variable "agent_sha" { type = string }
+variable "ami_name" { type = string }
+variable "region" { type = string }
+variable "ami_regions" { type = list(string) }
 
 locals {
-  dp_backup_service = "dp-backup"
-
-  // couchbase-server.service or enterprise-analytics.service
-  product_service = var.ns_server_profile == "analytics_provisioned" ? "enterprise-analytics" : "couchbase-server"
-
-  // install & enable dp-observer
-  setupDPObserver = "sudo mv /tmp/dp-observer.service /lib/systemd/system/dp-observer.service && sudo gunzip -c /tmp/dp-observer.gz > /home/ec2-user/dp-observer && sudo chmod +x /home/ec2-user/dp-observer && sudo systemctl enable dp-observer.service"
-  dPObserverConfig = var.dp_service != local.dp_backup_service ? local.setupDPObserver : ""
-
-  // configure ns_server profile
-  nsServerProfileConfig = can(regex("7.2", var.product_version)) ? "" : "sudo mkdir -p /etc/couchbase.d && sudo bash -c 'echo ${var.ns_server_profile} > /etc/couchbase.d/config_profile' && sudo chmod 755 /etc/couchbase.d/config_profile && sudo chown -R couchbase:couchbase /etc/couchbase.d"
-
-  ami_arch = var.product_arch == "aarch64" ? "arm64" : "x86_64"
-  neo_source_ami_name = local.ami_arch == "arm64"  ? "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2" : "amzn2-ami-hvm-2.0.*-${local.ami_arch}-gp2"
-  source_ami_name = can(regex("7.2", var.product_version)) ? "${local.neo_source_ami_name}" :  "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
-
+  ami_arch = var.product_arch
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
-  exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
-  process-exporter_version = "0.8.3"
-  process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${local.exporter_arch}"
-  node_exporter_version = "1.1.2"
-  node_exporter_package = "node_exporter-${local.node_exporter_version}.linux-${local.exporter_arch}"
-  pushgateway_version = "1.11.0"
-  pushgateway_package = "pushgateway-${local.pushgateway_version}.linux-${local.exporter_arch}"
+  exporter_arch = var.product_arch
+  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
+  product_service = var.ns_server_profile == "analytics_provisioned" ? "enterprise-analytics" : "couchbase-server"
 }
 
 source "amazon-ebs" "cc" {
@@ -73,6 +31,16 @@ source "amazon-ebs" "cc" {
   instance_type = "${local.instance_type}"
   region        = "${var.region}"
   ssh_timeout   = "15m"
+  ssh_username    = "ubuntu"
+  aws_polling {
+    delay_seconds = 30
+    max_attempts = 120
+  }
+  metadata_options {
+    http_endpoint = "enabled"
+    http_put_response_hop_limit = "1"
+    http_tokens   = "required"
+  }
   source_ami_filter {
     filters = {
       name                = "${local.source_ami_name}"
@@ -80,7 +48,7 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["amazon"]
+    owners      = ["099720109477"] // Canonical
   }
   tags = {
     owner         = "couchbase-capella"
@@ -96,183 +64,52 @@ source "amazon-ebs" "cc" {
     version       = "${var.product_version}-${var.product_bld_num}"
     agent       = "${var.agent_sha}"
   }
-  ssh_username = "ec2-user"
 }
 
 // a build block invokes sources and runs provisioning steps on them.
 build {
   sources = ["source.amazon-ebs.cc"]
-
   provisioner "file" {
     destination = "/tmp/"
-    source      = "${var.product_pkg_name}"
+    sources = [
+      "${var.product_pkg_name}",
+      "agents/${var.product_arch}/${var.dp_service}.gz",
+      "agents/${var.product_arch}/dp-observer.gz",
+      "agents/${var.product_arch}/dp-runtime-agent.gz",
+      "../common_scripts/${var.dp_service}.service",
+      "../common_scripts/dp-observer.service",
+      "../common_scripts/dp-runtime-agent.service",
+      "../common_scripts/node-exporter.service",
+      "../common_scripts/process-exporter.service",
+      "../common_scripts/pushgateway.service",
+      "../common_scripts/disable-thp.service",
+      "../common_scripts/journald.conf",
+      "../common_scripts/iptables-firewall.sh",
+      "../common_scripts/dp-firewall.service",
+      "../common_scripts/disable-mglru.service"
+    ]
   }
 
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "agents/${var.product_arch}/${var.dp_service}.gz"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "${var.dp_service}.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "agents/${var.product_arch}/dp-observer.gz"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "dp-observer.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "node-exporter.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "process-exporter.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "pushgateway.service"
-  }
-
-
-  provisioner "file" {
-    destination = "/tmp/disable-thp"
-    source      = "disable-thp"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/journald.conf"
-    source = "journald.conf"
-  }
-
-  provisioner "file" {
-   destination = "/tmp/iptables-firewall.sh"
-   source = "iptables-firewall.sh"
-  }
-
-  provisioner "file" {
-   destination = "/tmp/dp-firewall.service"
-   source = "dp-firewall.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "agents/${var.product_arch}/dp-runtime-agent.gz"
-  }
-
-  provisioner "file" {
-   destination = "/tmp/dp-runtime-agent.service"
-   source = "dp-runtime-agent.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/"
-    source      = "agents/${var.product_arch}/datastore-agent.gz"
-  }
-
-  provisioner "file" {
-   destination = "/tmp/datastore-agent.service"
-   source = "datastore-agent.service"
-  }
-
-  provisioner "file" {
-    destination = "/tmp/install-ai-services.sh"
-    source = "install-ai-services.sh"
+  // Create ec2-user which is required by Capella control plane.
+  // Packer AWS builder always connects to the temporary instance
+  // using the default SSH user defined by the base AMI.
+  // It does not support ussing a different user for the initial connection.
+  // Hence, the temporary instance is provisioned using "ubuntu" user.
+  // ec-user is created afterward.
+  provisioner "shell" {
+    script = "create_user.sh"
   }
 
   provisioner "shell" {
-    inline = [
-      "sleep 10",
-      "sudo mv /tmp/disable-thp /etc/init.d/disable-thp",
-      "sudo chmod 755 /etc/init.d/disable-thp",
-      "sudo chkconfig --add disable-thp",
-      "sudo mv /tmp/journald.conf /etc/systemd/journald.conf",
-      "sudo chown root:root /etc/systemd/journald.conf",
-      "sudo chmod 755 /etc/systemd/journald.conf",
-      // Set swappiness to 1 to avoid swapping excessively
-      "sudo sh -c 'echo \"vm.swappiness = 0\" >> /etc/sysctl.conf'",
-      // Install dependent yum packages:
-      //   tzdata: timezone info used by some N1QL functions
-      //   dependencies for system commands used by cbcollect_info:
-      //     lsof: lsof
-      //     shw: lshw
-      //     sysstat: iostat, sar, mpstat
-      //     net-tools: ifconfig, arp, netstat
-      //     numactl: numactl
-      //     ntp: ntpdate, ntpq
-      "sudo yum install -y nmap-ncat ntp lshw lsof sysstat net-tools numactl tzdata jq",
-      // Create couchbase user
-      "sudo useradd couchbase && sudo usermod -a -G systemd-journal couchbase && sudo usermod -a -G couchbase ec2-user",
-      // Setup ns_server profile
-      "${local.nsServerProfileConfig}",
-      "export INSTALL_DONT_START_SERVER=1",
-      "sudo -E yum install -y /tmp/${var.product_pkg_name}",
-      "rm /tmp/${var.product_pkg_name}",
-      // enterprise-analytics is installed under /opt/enterprise-analytics
-      // couchbase-server and couchbase-columnar are installed under /opt/couchbase
-      "if [ ${local.product_service} = \"enterprise-analytics\" ]; then BASE_DIR=\"/opt/${local.product_service}\"; else BASE_DIR=\"/opt/couchbase\"; fi",
-      // Setup the directory for the TLS certificate and key
-      "sudo mkdir -p $${BASE_DIR}/var/lib/couchbase/inbox/CA/",
-      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/CA/ca.pem",
-      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/chain.pem",
-      "sudo touch $${BASE_DIR}/var/lib/couchbase/inbox/pkey.key",
-      "sudo chown -R ec2-user:couchbase $${BASE_DIR}/var/lib/couchbase/inbox/",
-      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/CA/ca.pem",
-      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/chain.pem",
-      "sudo chmod 0640 $${BASE_DIR}/var/lib/couchbase/inbox/pkey.key",
-      "sudo systemctl disable ${local.product_service}",
-      // Install and start node exporter
-      "sudo wget https://github.com/prometheus/node_exporter/releases/download/v${local.node_exporter_version}/${local.node_exporter_package}.tar.gz -P /tmp/",
-      "sudo tar xvfz /tmp/${local.node_exporter_package}.tar.gz -C /home/ec2-user/ --strip-components=1 ${local.node_exporter_package}/node_exporter",
-      "sudo rm -f /tmp/${local.node_exporter_package}.tar.gz",
-      "sudo chown ec2-user:ec2-user /home/ec2-user/node_exporter",
-      "sudo mv /tmp/node-exporter.service /lib/systemd/system/node-exporter.service",
-      "sudo systemctl enable node-exporter.service",
-      // Install and enable process exporter
-      "sudo wget https://github.com/ncabatoff/process-exporter/releases/download/v${local.process-exporter_version}/${local.process-exporter_package}.rpm -P /tmp/",
-      "sudo rpm --install /tmp/${local.process-exporter_package}.rpm",
-      "sudo rm /tmp/${local.process-exporter_package}.rpm",
-      "sudo mv /tmp/process-exporter.service /lib/systemd/system/process-exporter.service",
-      "sudo systemctl enable process-exporter.service",
-      // Install pushgateway - do not enable
-      "sudo wget https://github.com/prometheus/pushgateway/releases/download/v${local.pushgateway_version}/${local.pushgateway_package}.tar.gz -P /tmp/",
-      "sudo tar xvfz /tmp/${local.pushgateway_package}.tar.gz -C /home/ec2-user/ --strip-components=1 ${local.pushgateway_package}/pushgateway",
-      "sudo rm -f /tmp/${local.pushgateway_package}.tar.gz",
-      "sudo chown ec2-user:ec2-user /home/ec2-user/pushgateway",
-      "sudo mv /tmp/pushgateway.service /lib/systemd/system/pushgateway.service",
-      // Install and enable dp-agent
-      "sudo mv /tmp/${var.dp_service}.service /lib/systemd/system/${var.dp_service}.service",
-      "sudo mv /tmp/${var.dp_service}.gz /home/ec2-user",
-      "sudo gunzip /home/ec2-user/${var.dp_service}.gz",
-      "sudo chmod +x /home/ec2-user/${var.dp_service}",
-      "sudo systemctl enable ${var.dp_service}.service",
-      // Conditionally install and enable dp-runtime-agent and datastore-agent
-      "sudo chmod +x /tmp/install-ai-services.sh",
-      "sudo /tmp/install-ai-services.sh ${var.product_name} ${var.product_version}",
-      // Install firewall service
-      "sudo mv /tmp/dp-firewall.service /lib/systemd/system/dp-firewall.service",
-      "sudo mv /tmp/iptables-firewall.sh /home/ec2-user",
-      "sudo chmod +x /home/ec2-user/iptables-firewall.sh",
-      "sudo chown root:root /home/ec2-user/iptables-firewall.sh",
-      "sudo systemctl start dp-firewall.service",
-      "sudo systemctl enable dp-firewall.service",
-      // Add imports directory
-      "sudo mkdir -p /home/ec2-user/imports",
-      "sudo chown ec2-user:ec2-user /home/ec2-user/imports",
-      // Install & configure dp-observer
-      "${local.dPObserverConfig}",
-      "sudo rm -f /tmp/dp-observer*",
-      // Cleanup leftover temp files
-      "sudo rm -f /tmp/*.gz /tmp/*.service"
+    environment_vars = [
+      "CLOUD_PROVIDER=aws",
+      "DP_SERVICE=${var.dp_service}",
+      "NS_SERVER_PROFILE=${var.ns_server_profile}",
+      "PRODUCT_SERVICE=${local.product_service}",
+      "PRODUCT_ARCH=${var.product_arch}",
+      "PRODUCT_PKG_NAME=${var.product_pkg_name}"
     ]
+    execute_command = "sudo -E sh -x -c '{{ .Vars }} {{ .Path }}'"
+    script = "../common_scripts/provision.sh"
   }
 }

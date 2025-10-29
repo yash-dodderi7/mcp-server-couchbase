@@ -10,7 +10,7 @@ function usage
     echo "  -e AWS_PROFILE: profile name specified in aws config"
     echo "  optional:"
     echo "  -a AMI Name: couchbase-data-api-test"
-    echo "  -d ARCH: aarch64 or x86_64"
+    echo "  -d ARCH: amd64 or arm64"
     echo "  -c AWS Config File: ~/.aws/config"
     echo "  -s AWS Shared Credentials File: ~/.aws/credentials"
     echo "  -g SHA that agent is built from"
@@ -102,7 +102,7 @@ EOT
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 #default config
-ARCH="aarch64"
+ARCH="arm64"
 AGENT_SHA="latest"
 AWS_SHARED_CREDENTIALS_FILE=${AWS_SHARED_CREDENTIALS_FILE:-"${SCRIPT_DIR}/.aws/credentials"}
 AWS_CONFIG_FILE=${AWS_CONFIG_FILE:-"${SCRIPT_DIR}/.aws/config"}
@@ -161,14 +161,14 @@ fi
 case ${PRODUCT} in
     couchbase-cloud-server|couchbase-cloud-backup)
         PACKER_FILE="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_NAME="couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+        PRODUCT_PKG_NAME="couchbase-server-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         ;;
     couchbase-columnar)
         if [[ "${VERSION}" == 1.0.* || "${VERSION}" == 1.1.* ]]; then
             PACKER_FILE="couchbase-server.pkr.hcl"
-            PRODUCT_PKG_NAME="${PRODUCT}-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+            PRODUCT_PKG_NAME="${PRODUCT}-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
             PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
             cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         else
