@@ -71,10 +71,6 @@ EOT
             echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
             echo "export PKR_VAR_dp_service=dp-backup" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
-        datastore-agent*)
-            echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-           ;;
         *)
            ;;
     esac
@@ -216,10 +212,10 @@ case ${PRODUCT} in
     # In subsequent release, dp-runtime-agent will be able to manage datastore-agent.
     # Hence, the same couchbase-server AMI will be used by AI to deploy for datastore service.
     datastore-agent)
-        PACKER_FILE="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_NAME="couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+        PACKER_FILE="datastore-agent.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-server-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
-        cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
+        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
         ;;
     *)
         echo "${PRODUCT} is not supported"

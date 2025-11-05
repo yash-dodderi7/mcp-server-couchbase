@@ -1,0 +1,24 @@
+[Unit]
+Description=DP Runtime Agent
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+LimitNOFILE=1024
+
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=60
+
+WorkingDirectory=/home/ubuntu
+ExecStart=/home/ubuntu/dp-runtime-agent
+PermissionsStartOnly=true
+
+# log with journald
+StandardError=journal
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target
