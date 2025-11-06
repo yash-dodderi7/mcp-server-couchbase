@@ -4,14 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
+User=ec2-user
+Group=ec2-user
 LimitNOFILE=1024
 
 Restart=on-failure
 RestartSec=10
 
-WorkingDirectory=/home/ubuntu
+WorkingDirectory=/home/ec2-user
 # We include --threads=false as without it the amount of metrics increases
 # drastically and there is a concern that the CP could not handle the extra
 # volume of metrics. Only remove with sufficient load testing.

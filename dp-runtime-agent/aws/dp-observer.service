@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
+User=ec2-user
+Group=ec2-user
 LimitNOFILE=1024
 
 # automatically restart service on failure only, not on expected shutdown (i.e. non-0 exit codes)
@@ -13,8 +13,8 @@ Restart=always
 # time to sleep in seconds before attempting to auto-restart the service
 RestartSec=10
 
-WorkingDirectory=/home/ubuntu
-ExecStart=/home/ubuntu/dp-observer
+WorkingDirectory=/home/ec2-user
+ExecStart=/home/ec2-user/dp-observer
 PermissionsStartOnly=true
 
 # log output to journal
@@ -23,4 +23,4 @@ StandardError=journal
 SyslogIdentifier=dp-observer
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target

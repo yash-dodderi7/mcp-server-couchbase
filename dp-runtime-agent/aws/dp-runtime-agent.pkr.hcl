@@ -22,8 +22,7 @@ locals {
   node_exporter_package    = "node_exporter-${local.node_exporter_version}.linux-${var.product_arch}"
 
   // Use a base image with GPU support, required by model-serving-agent
-  // This is owned by AWS rather than Canonical
-  source_ami_name = var.product_arch == "amd64" ? "Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)*" : "Deep Learning ARM64 Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)*"
+  source_ami_name = var.product_arch == "arm64" ? "Deep Learning ARM64 Base OSS Nvidia Driver GPU AMI (Amazon Linux 2)*" : "Deep Learning Base OSS Nvidia Driver AMI (Amazon Linux 2)*"
   instance_type = var.product_arch == "arm64" ? "t4g.micro" : "t2.micro"
 }
 
@@ -51,7 +50,7 @@ source "amazon-ebs" "cc" {
     creator       = "build-team"
     version       = "${var.product_version}"
   }
-  ssh_username = "ubuntu"
+  ssh_username = "ec2-user"
 }
 
 build {

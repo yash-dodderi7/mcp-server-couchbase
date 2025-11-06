@@ -4,15 +4,15 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
+User=ec2-user
+Group=ec2-user
 LimitNOFILE=1024
 
 Restart=on-failure
 RestartSec=10
 
-WorkingDirectory=/home/ubuntu
-ExecStart=/home/ubuntu/dp-runtime-agent
+WorkingDirectory=/home/ec2-user
+ExecStart=/home/ec2-user/dp-runtime-agent
 PermissionsStartOnly=true
 
 # log with journald
@@ -20,4 +20,4 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target
