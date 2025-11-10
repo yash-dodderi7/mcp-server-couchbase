@@ -213,7 +213,8 @@ case ${PRODUCT} in
     # Hence, the same couchbase-server AMI will be used by AI to deploy for datastore service.
     datastore-agent)
         PACKER_FILE="datastore-agent.pkr.hcl"
-        PRODUCT_PKG_NAME="couchbase-server-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
+        PKG_ARCH=$([[ "${ARCH}" == "arm64" ]] && echo "aarch64" || echo "x86_64")
+        PRODUCT_PKG_NAME="couchbase-server-enterprise-${VERSION}-${BLD_NUM}-linux.${PKG_ARCH}.rpm"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
         ;;

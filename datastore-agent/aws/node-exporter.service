@@ -4,15 +4,15 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
+User=ec2-user
+Group=ec2-user
 LimitNOFILE=1024
 
 Restart=on-failure
 RestartSec=10
 
-WorkingDirectory=/home/ubuntu
-ExecStart=/home/ubuntu/node_exporter \
+WorkingDirectory=/home/ec2-user
+ExecStart=/home/ec2-user/node_exporter \
                 --collector.disable-defaults \
                 --collector.cpu \
                 --collector.diskstats \
