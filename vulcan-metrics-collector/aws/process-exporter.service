@@ -16,7 +16,7 @@ WorkingDirectory=/home/ubuntu
 # drastically and there is a concern that the CP could not handle the extra
 # volume of metrics. Only remove with sufficient load testing.
 ExecStart=/usr/bin/process-exporter \
-                --procnames=vulcan-metrics-collector \
+                --procnames=vulcan-metrics-collector, dp-observer \
                 --web.listen-address=:12005 \
                 --threads=false
 

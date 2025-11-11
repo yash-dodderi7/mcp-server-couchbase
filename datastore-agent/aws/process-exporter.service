@@ -16,7 +16,7 @@ WorkingDirectory=/home/ec2-user
 # drastically and there is a concern that the CP could not handle the extra
 # volume of metrics. Only remove with sufficient load testing.
 ExecStart=/usr/bin/process-exporter \
-                --procnames=datastore-agent, dp-runtime-agent \
+                --procnames=dp-observer, datastore-agent, dp-runtime-agent \
                 --web.listen-address=:12005 \
                 --threads=false
 
