@@ -218,6 +218,12 @@ case ${PRODUCT} in
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
         ;;
+    dp-accelerator)
+        PACKER_FILE="dp-accelerator.pkr.hcl"
+        PRODUCT_PKG_NAME="couchbase-server-enterprise_${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
+        PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/couchbase-server/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
+        cd ${WORKSPACE}/cloud-build-tools/${PRODUCT}/aws
+        ;;
     *)
         echo "${PRODUCT} is not supported"
         exit 1

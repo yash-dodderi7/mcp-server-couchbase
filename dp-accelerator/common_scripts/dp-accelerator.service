@@ -1,0 +1,29 @@
+[Unit]
+Description=DP Accelerator Service responsible for downloading Fusion data from cloud storage
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+LimitAS=infinity
+LimitRSS=infinity
+LimitCORE=infinity
+LimitNOFILE=65536
+
+Restart=on-failure
+RestartSec=10
+
+WorkingDirectory=/home/ubuntu
+ExecStart=/home/ubuntu/dp-accelerator
+
+PermissionsStartOnly=true
+ExecStopPost=/home/ubuntu/log-shipper.sh
+
+# log output to journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dpaccelerator
+
+[Install]
+WantedBy=multi-user.target
