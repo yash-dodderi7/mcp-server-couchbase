@@ -79,7 +79,7 @@ fi
 #     net-tools: ifconfig, arp, netstat
 #     numactl: numactl
 #      ntp: ntpdate, ntpq
-apt install -y iptables jq lshw lsof ncat net-tools nmap ntp numactl rsync sysstat tzdata wget
+apt install -y iptables jq lshw lsof ncat net-tools nmap ntp numactl rsync sysstat tzdata wget nvme-cli
 
 # Install Couchbase
 export INSTALL_DONT_START_SERVER=1

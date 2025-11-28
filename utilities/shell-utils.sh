@@ -168,7 +168,7 @@ download_agents() {
     download_agent "datastore-agent" ${datastore_sha} ${aws_profile} ${s3_bucket}
 
     # Download dp-agent and dp-backup (use provided SHA or get latest)
-    local agents=("dp-agent:DP_AGENT_SHA" "dp-backup:DP_BACKUP_SHA")
+    local agents=("dp-agent:DP_AGENT_SHA" "dp-columnar:DP_COLUMNAR_SHA" "dp-backup:DP_BACKUP_SHA")
     for agent_info in "${agents[@]}"; do
         local agent="${agent_info%:*}"
         local sha_var="${agent_info#*:}"

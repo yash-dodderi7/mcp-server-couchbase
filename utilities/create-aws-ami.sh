@@ -61,7 +61,7 @@ EOT
            ;;
         enterprise-analytics)
             echo "export PKR_VAR_ns_server_profile=analytics_provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
+            echo "export PKR_VAR_dp_service=dp-columnar" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
            ;;
         couchbase-cloud-server*)
             echo "export PKR_VAR_ns_server_profile=provisioned" >> .env-${AMI_NAME}-${ARCH}-${AWS_PROFILE}
