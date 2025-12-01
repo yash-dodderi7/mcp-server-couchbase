@@ -178,7 +178,7 @@ case ${PRODUCT} in
             exit 1
         fi
         PACKER_FILE="couchbase-server.pkr.hcl"
-        PRODUCT_PKG_NAME="${PRODUCT}-${VERSION}-${BLD_NUM}-linux.${ARCH}.rpm"
+        PRODUCT_PKG_NAME="${PRODUCT}-${VERSION}-${BLD_NUM}-linux_${ARCH}.deb"
         PRODUCT_PKG_URL="http://latestbuilds.service.couchbase.com/builds/latestbuilds/${PRODUCT}/${RELEASE}/${BLD_NUM}/${PRODUCT_PKG_NAME}"
         cd ${WORKSPACE}/cloud-build-tools/couchbase-server/aws
         ;;
