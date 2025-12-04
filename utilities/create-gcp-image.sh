@@ -62,7 +62,7 @@ EOT
            ;;
         enterprise-analytics)
             echo "export PKR_VAR_ns_server_profile=analytics_provisioned" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
-            echo "export PKR_VAR_dp_service=dp-agent" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
+            echo "export PKR_VAR_dp_service=dp-columnar" >> .env-${IMAGE_NAME}-${ARCH}-${ENV}
            ;;
         *)
            ;;
