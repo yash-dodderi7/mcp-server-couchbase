@@ -124,7 +124,7 @@ build_images() {
             -f ${docker_file} \
             --platform=linux/amd64 \
             -t ${image_reference} .
-        popd ${SRC_DIR}
+        popd
     done
 }
 
