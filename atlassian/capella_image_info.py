@@ -37,7 +37,7 @@ logger.addHandler(console_handler)
 CONFLUENCE_URL = 'https://couchbasecloud.atlassian.net'
 CONFLUENCE_PAGE_ID = 2405410007
 CONFLUENCE_PAGE_NAME = 'Capella Images Information'
-CLOUDS = ['aws', 'azure', 'gcp']
+ARCHITECTURES = ['amd64', 'x86_64', 'arm64']
 
 
 def makedict():
@@ -57,6 +57,39 @@ def confluence_session():
         password=f"{cloud_jira_creds['apitoken']}",
         cloud=True)
     return session
+
+
+def get_latest_image(image_names):
+    '''
+    Select the latest image
+    Return a dictionary of latest images by architecture.
+
+    '''
+    latest_images = {}
+    if not image_names:
+        return latest_images
+
+    images_with_arch = collections.defaultdict(list)
+    images_without_arch = []
+
+    for img in image_names:
+        # Check if image name contains any architecture
+        for arch in ARCHITECTURES:
+            if f'-{arch}-' in img['Name']:
+                images_with_arch[arch].append(img)
+                break
+        else:
+            images_without_arch.append(img)
+
+    if images_without_arch:
+        latest_images['no_arch'] = images_without_arch[0]
+    else:
+        for arch in ARCHITECTURES:
+            if images_with_arch[arch]:
+                latest_images[arch] = images_with_arch[arch][0]
+
+    return latest_images
+
 
 def build_confluence_body(images):
     '''
@@ -83,15 +116,16 @@ def build_confluence_body(images):
                 for version in images[product]:
                     with a.tr():
                         a.td(_t=f'{version}')
-                        a.td(
-                            _t=f"{images[product][version]['aws']['latest']}"
-                            f"<br/>Agent: {images[product][version]['aws']['latest_sha']}")
-                        a.td(
-                            _t=f"{images[product][version]['azure']['latest']}"
-                            f"<br/>Agent: {images[product][version]['aws']['latest_sha']}")
-                        a.td(
-                            _t=f"{images[product][version]['gcp']['latest']}"
-                            f"<br/>Agent: {images[product][version]['aws']['latest_sha']}")
+                        # Format latest images - dictionary of latest images by architecture
+                        aws_latest = images[product][version]['aws']['latest']
+                        aws_display = '<br/>'.join(sorted([img['Name'] for img in aws_latest.values()])) if aws_latest else ''
+                        a.td(_t=aws_display)
+                        azure_latest = images[product][version]['azure']['latest']
+                        azure_display = '<br/>'.join(sorted([img['Name'] for img in azure_latest.values()])) if azure_latest else ''
+                        a.td(_t=azure_display)
+                        gcp_latest = images[product][version]['gcp']['latest']
+                        gcp_display = '<br/>'.join(sorted([img['Name'] for img in gcp_latest.values()])) if gcp_latest else ''
+                        a.td(_t=gcp_display)
 
     with a.h1():
         a('Available Images')
@@ -123,21 +157,14 @@ def get_aws_images(aws, product, version):
     '''
     images = {}
     images['available'] = []
-    images['latest_sha'] = ''
     image_pattern = f'{product}-{version}*-v*'
     available_images = aws.search_ami_by_pattern(
-        ami_filters = {'name': image_pattern})
+        ami_filters={'name': image_pattern})
     if available_images:
         available_images.sort(key=lambda x: (x['Name']), reverse=True)
         for item in available_images:
             images['available'].append(item['Name'])
-        images['latest'] = available_images[0]['Name']
-        for tag in available_images[0]['Tags']:
-            if tag['Key'] == 'agent':
-                images['latest_sha'] = tag['Value']
-    else:
-        images['latest'] = ''
-        images['latest_sha'] = ''
+    images['latest'] = get_latest_image(available_images)
     return images
 
 
@@ -147,24 +174,18 @@ def get_gcp_images(gcp, product, version):
     '''
     images = {}
     gcp_version = version.replace('.', '-')
-    images = {}
     images['available'] = []
-    images['latest_sha'] = ''
     image_pattern = f'{product}-{gcp_version}-*'
     available_images = gcp.search_image_by_pattern(
-        image_filters = {'name': image_pattern})
-    if not isinstance(available_images, list):
-        available_images = list(available_images)
+        image_filters={'name': image_pattern})
+    # Convert to same format as AWS (dict with 'Name' key)
+    available_images = [{'Name': img.name}
+                        for img in available_images] if available_images else []
     if available_images:
-        available_images.sort(key=lambda x: (x.name), reverse=True)
+        available_images.sort(key=lambda x: (x['Name']), reverse=True)
         for item in available_images:
-            images['available'].append(item.name)
-        images['latest'] = available_images[0].name
-        if 'agent' in available_images[0].labels:
-            images['latest_sha'] = available_images[0].labels['agent']
-    else:
-        images['latest'] = ''
-        images['latest_sha'] = ''
+            images['available'].append(item['Name'])
+    images['latest'] = get_latest_image(available_images)
     return images
 
 
@@ -174,42 +195,26 @@ def get_azure_images(azure, product, version):
     '''
     images = {}
     images['available'] = []
-    images['latest_sha'] = ''
     image_pattern = f'^{product}-{version}-v(?!0.0.0)'
-    all_images, image_versions = azure.get_images_by_resource_group('image-factory')
+    all_images, image_versions = azure.get_images_by_resource_group(
+        'image-factory')
     available_images = list(
         filter(
             lambda x: re.search(
                 image_pattern,
                 x.name),
             all_images))
+    # Convert to same format as AWS (dict with 'Name' key)
+    available_images = [{'Name': img.name} for img in available_images]
     if available_images:
-        available_images.sort(key=lambda x: (x.name), reverse=True)
+        available_images.sort(key=lambda x: (x['Name']), reverse=True)
         for item in available_images:
-            images['available'].append(item.name)
-        images['latest'] = available_images[0].name
-        if 'agent' in available_images[0].tags:
-            images['latest_sha'] = available_images[0].tags['agent']
-    else:
-        images['latest'] = ''
-        images['latest_sha'] = ''
+            images['available'].append(item['Name'])
+    images['latest'] = get_latest_image(available_images)
     return images
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser('Capella Images')
-    parser.add_argument(
-        '--user',
-        type=str,
-        required=True,
-        help='Confluence user name')
-    parser.add_argument(
-        '--pat',
-        type=str,
-        required=True,
-        help='Confluence user PAT')
-    args = parser.parse_args()
-
     script_dir = os.path.dirname(os.path.realpath(__file__))
     product_versions = json.loads(
         open(f'{script_dir}/product_versions.json').read())
