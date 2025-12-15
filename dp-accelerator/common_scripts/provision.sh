@@ -3,11 +3,12 @@
 # Function to install and enable agent
 install_agent() {
     local agent_name="$1"
+    local install_dir="$2"
     echo "Installing ${agent_name}..."
     mv /"${TMP_DIR}"/"${agent_name}".service /lib/systemd/system/"${agent_name}".service
-    gunzip -c "${TMP_DIR}"/"${agent_name}".gz > "${HOME_DIR}"/"${agent_name}"
-    chmod +x "${HOME_DIR}"/"${agent_name}"
-    chown ${DEFAULT_USER}:${DEFAULT_USER} "${HOME_DIR}"/"${agent_name}"
+    gunzip -c "${TMP_DIR}"/"${agent_name}".gz > "${install_dir}"/"${agent_name}"
+    chmod +x "${install_dir}"/"${agent_name}"
+    chown ${DEFAULT_USER}:${DEFAULT_USER} "${install_dir}"/"${agent_name}"
     systemctl enable "${agent_name}".service
     echo "${agent_name} installed and enabled successfully"
 }
@@ -16,6 +17,7 @@ install_agent() {
 TMP_DIR="/tmp"
 DEFAULT_USER="ubuntu"
 HOME_DIR="/home/${DEFAULT_USER}"
+CAPELLA_DIR="/opt/capella"
 PROCESS_EXPORTER_VERSION="0.8.7"
 NODE_EXPORTER_VERSION="1.9.1"
 PROCESS_EXPORTER_PACKAGE="process-exporter_${PROCESS_EXPORTER_VERSION}_linux_${PRODUCT_ARCH}"
@@ -62,9 +64,12 @@ systemctl disable couchbase-server
 mkdir -p /data
 chown -R ${DEFAULT_USER}:${DEFAULT_USER} /data
 
-# Install & configure dp agents
-install_agent dp-accelerator
-install_agent dp-observer
+# Install & configure agents
+mkdir -p ${CAPELLA_DIR}/bin
+mkdir -p ${CAPELLA_DIR}/logs
+chown -R ${DEFAULT_USER}:${DEFAULT_USER} ${CAPELLA_DIR}
+install_agent dp-accelerator ${CAPELLA_DIR}/bin
+install_agent dp-observer ${HOME_DIR}
 
 # Set logs and tmp directories
 mkdir -p ${HOME_DIR}/logs && chmod 755 ${HOME_DIR}/logs && chown ${DEFAULT_USER} ${HOME_DIR}/logs

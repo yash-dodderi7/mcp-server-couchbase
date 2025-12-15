@@ -14,11 +14,11 @@ LimitNOFILE=65536
 Restart=on-failure
 RestartSec=10
 
-WorkingDirectory=/home/ubuntu
-ExecStart=/home/ubuntu/dp-accelerator
+WorkingDirectory=/opt/capella
+ExecStart=/opt/capella/bin/dp-accelerator
 
 PermissionsStartOnly=true
-ExecStopPost=/home/ubuntu/log-shipper.sh
+ExecStopPost=/opt/capella/bin/log-shipper.sh
 
 # log output to journal
 StandardOutput=journal
