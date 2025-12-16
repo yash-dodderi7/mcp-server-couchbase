@@ -44,6 +44,10 @@ apt install -y "${TMP_DIR}"/"${PROCESS_EXPORTER_PACKAGE}".deb
 mv "${TMP_DIR}"/process-exporter.service /lib/systemd/system/process-exporter.service
 systemctl enable process-exporter.service
 
+# Install a couple of dependencies for the log shipper script
+apt-get install zip -y
+snap install aws-cli --classic
+
 # Create couchbase user
 useradd couchbase && usermod -a -G systemd-journal couchbase && usermod -a -G couchbase ${DEFAULT_USER}
 
