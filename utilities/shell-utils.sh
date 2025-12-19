@@ -133,6 +133,34 @@ EOT
     export AWS_CONFIG_FILE=${aws_custom_config_dir}/config
 }
 
+# Upload files to Capella's cbc-internal-release s3 bucket
+function s3_internal_release() {
+    local src_dir=${1}         # Source directory
+    local profile=${2}         # AWS Profile
+
+    case "${profile}" in
+        dbaas-test-0005-*)
+            bucket_path="s3://cbc-internal-release-test/releases"
+            ;;
+        dbaas-stage-0001-*)
+            bucket_path="s3://cbc-internal-release-preprod/releases"
+            ;;
+        dbaas-prod-0001-*)
+            bucket_path="s3://cbc-internal-release/releases"
+            ;;
+        *) echo "${profile} is not supported"
+            exit 1
+            ;;
+    esac
+
+    echo "Upload ${src_dir} to ${bucket_path}"
+    aws s3 cp \
+        ./${src_dir} \
+        ${bucket_path}/${src_dir} \
+        --recursive \
+        --profile ${profile}
+}
+
 # Function to download a specific agent with a given SHA
 # Get latest SHA for an agent from S3
 get_latest_sha() {
