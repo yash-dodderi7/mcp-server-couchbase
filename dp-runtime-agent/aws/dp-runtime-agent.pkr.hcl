@@ -23,7 +23,7 @@ locals {
 
   // Use a base image with GPU support, required by model-serving-agent
   source_ami_name = var.product_arch == "arm64" ? "Deep Learning ARM64 Base OSS Nvidia Driver GPU AMI (Amazon Linux 2)*" : "Deep Learning Base OSS Nvidia Driver AMI (Amazon Linux 2)*"
-  instance_type = var.product_arch == "arm64" ? "t4g.micro" : "t2.micro"
+  instance_type = var.product_arch == "arm64" ? "t4g.micro" : "t3.micro"
 }
 
 source "amazon-ebs" "cc" {

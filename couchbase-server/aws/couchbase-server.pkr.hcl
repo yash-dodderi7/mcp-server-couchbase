@@ -19,7 +19,7 @@ variable "ami_regions" { type = list(string) }
 
 locals {
   ami_arch = var.product_arch
-  instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t2.micro"
+  instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t3.micro"
   exporter_arch = var.product_arch
   source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
   product_service = var.ns_server_profile == "analytics_provisioned" ? "enterprise-analytics" : "couchbase-server"

@@ -19,7 +19,7 @@ locals {
   couchbase_server_pkg = var.product_pkg_name
   ami_name             = var.ami_name != "" ? var.ami_name : "dp-accelerator-${var.product_version}-${var.product_arch}"
   source_ami_name      = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${var.product_arch}-server*"
-  instance_type        = var.product_arch == "arm64" ? "t4g.micro" : "t2.micro"
+  instance_type        = var.product_arch == "arm64" ? "t4g.micro" : "t3.micro"
 }
 
 source "amazon-ebs" "cc" {

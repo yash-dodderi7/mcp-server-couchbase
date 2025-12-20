@@ -25,7 +25,7 @@ locals {
   arch            = "amd64"
   ami_name        = var.ami_name != "" ? var.ami_name : "vulcan-metrics-collector-${var.product_version}-${local.arch}"
   source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server*"
-  instance_type   = "t2.micro"
+  instance_type   = "t3.micro"
   process_exporter_version = "0.8.7"
   process_exporter_package = "process-exporter_${local.process_exporter_version}_linux_${local.arch}"
   node_exporter_version = "1.9.1"

@@ -19,7 +19,7 @@ locals {
   ami_name             = var.ami_name != "" ? var.ami_name : "datastore-agent-${var.product_version}-${var.product_arch}"
   ami_arch             = var.product_arch == "arm64" ? "arm64" : "x86_64"
   source_ami_name      = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
-  instance_type        = var.product_arch == "arm64" ? "t4g.micro" : "t2.micro"
+  instance_type        = var.product_arch == "arm64" ? "t4g.micro" : "t3.micro"
 }
 
 source "amazon-ebs" "cc" {

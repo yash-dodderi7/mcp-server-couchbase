@@ -61,7 +61,7 @@ source "azure-arm" "cc" {
   os_type                            = "Linux"
   location                           = "${var.region}"
   subscription_id                    = "${var.subscription_id}"
-  vm_size                            = "Standard_D2s_v3"
+  vm_size                            = "Standard_D2s_v5"
   ssh_username                       = "ubuntu"
 }
 
