@@ -49,7 +49,12 @@ apt-get install zip -y
 snap install aws-cli --classic
 
 # Create couchbase user
-useradd couchbase && usermod -a -G systemd-journal couchbase && usermod -a -G couchbase ${DEFAULT_USER}
+# GCP Stage has a bug in rc-non-prod AV-119149.
+# couchbase pre-exists when an instance is launched.
+# hence, we need to check for its existence before creating it
+id couchbase &>/dev/null || useradd couchbase
+usermod -a -G systemd-journal couchbase
+usermod -a -G couchbase ${DEFAULT_USER}
 
 export INSTALL_DONT_START_SERVER=1
 apt install -y "${TMP_DIR}"/"${COUCHBASE_SERVER_PKG}"

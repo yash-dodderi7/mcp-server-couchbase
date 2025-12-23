@@ -49,8 +49,11 @@ update-grub
 
 # Grant ec2-user sudo access
 # Create couchbase user
+# GCP Stage has a bug in rc-non-prod AV-119149.
+# couchbase pre-exists when an instance is launched.
+# hence, we need to check for its existence before creating it
 echo "ec2-user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/dpapps
-useradd couchbase
+id couchbase &>/dev/null || useradd couchbase
 usermod -a -G systemd-journal couchbase
 usermod -a -G couchbase ec2-user
 
