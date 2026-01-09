@@ -12,7 +12,7 @@
         },
         "Unstructured": {
             "registry": "avengers/vulcan-core-unstructured",
-            "docker_file": "docker/Unstructured.Dockerfile",
+            "docker_file": "docker/UnstructuredIO.Dockerfile",
             "tag": "amd64-${RELEASE}"
         },
         "ListFiles": {
