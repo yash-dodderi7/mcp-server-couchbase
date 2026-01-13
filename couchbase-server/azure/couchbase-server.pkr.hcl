@@ -99,7 +99,8 @@ build {
       "NS_SERVER_PROFILE=${var.ns_server_profile}",
       "PRODUCT_SERVICE=${local.product_service}",
       "PRODUCT_ARCH=${var.product_arch}",
-      "PRODUCT_PKG_NAME=${var.product_pkg_name}"
+      "PRODUCT_PKG_NAME=${var.product_pkg_name}",
+      "PRODUCT_VERSION=${var.product_version}"
     ]
     execute_command = "sudo -E sh -x -c '{{ .Vars }} {{ .Path }}'"
     script = "../common_scripts/provision.sh"

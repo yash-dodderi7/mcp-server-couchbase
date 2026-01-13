@@ -128,6 +128,7 @@ systemctl enable pushgateway.service
 # Install and enable dp-agent or dp-backup
 mv "${TMP_DIR}"/"${DP_SERVICE}".service /lib/systemd/system/"${DP_SERVICE}".service
 gunzip -c "${TMP_DIR}"/"${DP_SERVICE}".gz > /home/ec2-user/"${DP_SERVICE}"
+chown ec2-user:ec2-user /home/ec2-user/"${DP_SERVICE}"
 chmod +x /home/ec2-user/"${DP_SERVICE}"
 systemctl enable "${DP_SERVICE}".service
 
@@ -149,10 +150,22 @@ gunzip -c "${TMP_DIR}"/dp-observer.gz > /home/ec2-user/dp-observer
 chmod +x /home/ec2-user/dp-observer
 systemctl enable dp-observer.service
 
-if [[ ${CLOUD_PROVIDER} == "aws" && ${PRODUCT_SERVICE} == "couchbase-server" && ${DP_SERVICE} == "dp-agent" ]]; then
+# dp-runtime-agent is an AI agent for couchbase-server 8.0.0 or above
+# It is currently only avaialble for AWS
+ENABLE_DP_RUNTIME_AGENT=0
+product_major_version=${PRODUCT_VERSION%%.*}
+if [[ ${CLOUD_PROVIDER} == "aws" \
+    && ${PRODUCT_SERVICE} == "couchbase-server" \
+    && ${DP_SERVICE} == "dp-agent" \
+    && ${product_major_version} -ge 8 ]]; then
+    ENABLE_DP_RUNTIME_AGENT=1
+fi
+
+if [[ ${ENABLE_DP_RUNTIME_AGENT} -eq 1 ]]; then
     mv ${TMP_DIR}/dp-runtime-agent.service /lib/systemd/system/.
     mv ${TMP_DIR}/dp-runtime-agent.gz /home/ec2-user/.
     gunzip /home/ec2-user/dp-runtime-agent.gz
+    chown ec2-user:ec2-user /home/ec2-user/dp-runtime-agent
     chmod +x /home/ec2-user/dp-runtime-agent
     systemctl enable dp-runtime-agent.service
 fi
