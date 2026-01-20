@@ -60,11 +60,7 @@ build {
     sources     = [
       "${local.couchbase_server_pkg}",
       "agents/${var.product_arch}/dp-accelerator.gz",
-      "agents/${var.product_arch}/dp-observer.gz",
       "../common_scripts/dp-accelerator.service",
-      "../common_scripts/dp-observer.service",
-      "../common_scripts/node-exporter.service",
-      "../common_scripts/process-exporter.service",
       "../common_scripts/journald.conf",
       "../common_scripts/provision.sh"
     ]

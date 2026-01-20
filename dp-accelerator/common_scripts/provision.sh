@@ -33,18 +33,9 @@ unattended-upgrade
 systemctl disable --now unattended-upgrades.service
 sed -i 's/^APT::Periodic::Unattended-Upgrade\s*"\?1"\?;/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades
 
-# Install and start node exporter
-wget "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/${NODE_EXPORTER_PACKAGE}.tar.gz" -P "${TMP_DIR}"/
-tar xvfz "${TMP_DIR}"/"${NODE_EXPORTER_PACKAGE}".tar.gz -C "${HOME_DIR}" --strip-components=1 "${NODE_EXPORTER_PACKAGE}"/node_exporter
-chown ${DEFAULT_USER}:${DEFAULT_USER} "${HOME_DIR}"/node_exporter
-mv "${TMP_DIR}"/node-exporter.service /lib/systemd/system/node-exporter.service
-systemctl enable node-exporter.service
-
-# Install and enable process exporter
-wget "https://github.com/ncabatoff/process-exporter/releases/download/v${PROCESS_EXPORTER_VERSION}/${PROCESS_EXPORTER_PACKAGE}.deb" -P "${TMP_DIR}"/
-apt install -y "${TMP_DIR}"/"${PROCESS_EXPORTER_PACKAGE}".deb
-mv "${TMP_DIR}"/process-exporter.service /lib/systemd/system/process-exporter.service
-systemctl enable process-exporter.service
+# Install a couple of dependencies for the log shipper script
+apt-get install zip -y
+snap install aws-cli --classic
 
 # Install a couple of dependencies for the log shipper script
 apt-get install zip -y
@@ -69,7 +60,6 @@ mkdir -p ${CAPELLA_DIR}/bin
 mkdir -p ${CAPELLA_DIR}/logs
 chown -R ${DEFAULT_USER}:${DEFAULT_USER} ${CAPELLA_DIR}
 install_agent dp-accelerator ${CAPELLA_DIR}/bin
-install_agent dp-observer ${HOME_DIR}
 
 # Set logs and tmp directories
 mkdir -p ${HOME_DIR}/logs && chmod 755 ${HOME_DIR}/logs && chown ${DEFAULT_USER} ${HOME_DIR}/logs
