@@ -12,13 +12,12 @@ LimitCORE=infinity
 LimitNOFILE=65536
 
 Restart=on-failure
-RestartSec=10
+RestartSec=30
 
 WorkingDirectory=/opt/capella
 ExecStart=/opt/capella/bin/dp-accelerator
 
 PermissionsStartOnly=true
-ExecStopPost=/opt/capella/bin/log-shipper.sh
 
 # log output to journal
 StandardOutput=journal
