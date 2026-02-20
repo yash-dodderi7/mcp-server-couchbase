@@ -5,9 +5,8 @@ import logging
 import sys
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.resource import ResourceManagementClient
-from azure.mgmt.subscription import SubscriptionClient
+from azure.mgmt.resource import SubscriptionClient
 from azure.identity import ClientSecretCredential
-from azure.core.exceptions import ResourceNotFoundError, HttpResponseError
 
 logger = logging.getLogger('azure')
 logger.setLevel(logging.ERROR)
@@ -37,18 +36,9 @@ class AzureUtils:
         This is useful for operations such as image replication.
         '''
         locations = self.subscription_client.subscriptions.list_locations(
-            self.subscription_id
-        )
-        # Get the locations where 'images' resource type is allowed
-        compute_provider = self.resource_client.providers.get("Microsoft.Compute")
-        image_resource_type = next(
-            rt for rt in compute_provider.resource_types if rt.resource_type == 'images'
-        )
-        allowed_locations = set(image_resource_type.locations)
-
-        # Filter only the allowed regions
-        regions = [loc.name for loc in locations if loc.display_name in allowed_locations]
-
+            subscription_id=self.subscription_id)
+        regions = [
+            l.name for l in locations if l.availability_zone_mappings is not None]
         return regions
 
     def get_gallery(self, resource_group_name, gallery_name):
@@ -66,12 +56,13 @@ class AzureUtils:
         try:
             return self.compute_client.gallery_images.get(
                 resource_group_name, gallery_name, image_definition_name)
-        except ResourceNotFoundError as e:
-            logger.warning(f"Image definition not found: {e.message}")
-            return None  # or handle as appropriate
-        except HttpResponseError as e:
-            logger.error(f"Azure API error: {e.message}")
-            sys.exit(1)
+        except Exception as e:
+            if e.status_code == 404:
+                # Image definition not found
+                logger.warning(e.message)
+            else:
+                # Something else is wrong, exit
+                sys.exit(e.message)
 
     def create_image_definition(
             self,
@@ -109,12 +100,13 @@ class AzureUtils:
         try:
             return self.compute_client.images.get(
                 resource_group_name=resource_group_name, image_name=image_name)
-        except ResourceNotFoundError:
-            logger.warning(f"Image '{image_name}' not found in resource group '{resource_group_name}'.")
-            return None
-        except HttpResponseError as e:
-            logger.error(f"Azure API error: {str(e)}")
-            sys.exit(1)
+        except Exception as e:
+            if e.status_code == 404:
+                # Image not found
+                logger.warning(e.message)
+            else:
+                # Something else is wrong, exit
+                sys.exit(e.message)
 
     def delete_image_by_name(self, resource_group_name, image_name):
         '''
