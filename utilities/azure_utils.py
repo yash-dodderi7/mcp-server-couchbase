@@ -47,7 +47,7 @@ class AzureUtils:
         allowed_locations = set(image_resource_type.locations)
 
         # Filter only the allowed regions
-        regions = [loc.name for loc in locations if loc.name in allowed_locations]
+        regions = [loc.name for loc in locations if loc.display_name in allowed_locations]
 
         return regions
 
