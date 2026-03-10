@@ -2,28 +2,23 @@
     "vulcan": {
         "Docling": {
             "registry": "avengers/vulcan-core-docling",
-            "docker_file": "docker/Docling.Dockerfile",
-            "tag": "amd64-${RELEASE}"
+            "docker_file": "docker/Docling.Dockerfile"
         },
         "JsonLoader": {
             "registry": "avengers/vulcan-core-jsonloader",
-            "docker_file": "docker/JsonLoader.Dockerfile",
-            "tag": "amd64-${RELEASE}"
+            "docker_file": "docker/JsonLoader.Dockerfile"
         },
         "Unstructured": {
             "registry": "avengers/vulcan-core-unstructured",
-            "docker_file": "docker/UnstructuredIO.Dockerfile",
-            "tag": "amd64-${RELEASE}"
+            "docker_file": "docker/UnstructuredIO.Dockerfile"
         },
         "ListFiles": {
             "registry": "avengers/vulcan-task-list-files",
-            "docker_file": "docker/ListFiles.Dockerfile",
-            "tag": "amd64-${RELEASE}"
+            "docker_file": "docker/ListFiles.Dockerfile"
         },
         "UpdateWorkflowStatus": {
             "registry": "avengers/vulcan-task-update-workflow-status",
-            "docker_file": "docker/UpdateWorkflowStatus.Dockerfile",
-            "tag": "amd64-${RELEASE}"
+            "docker_file": "docker/UpdateWorkflowStatus.Dockerfile"
         }
     }
 }

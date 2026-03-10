@@ -1,6 +1,11 @@
 #!/bin/bash
+
 # ECR Image Publishing Script
 # This script builds and pushes Docker images to AWS ECR
+# Sandbox: images are built and publish
+#          create_arch_tags is used to produce ARCH specific tags
+# Stage|Prod: images are copied from Sandbox
+#          create_arch_tags is used to produce ARCH specific tags
 set -e  # Exit on any error
 
 # Help function
@@ -8,9 +13,8 @@ usage() {
     echo "ECR Image Publishing Script"
     echo "Usage: $0 [OPTIONS]"
     echo "Options:"
-    echo "  -a, Action: build|publish (required)"
     echo "  -d, Dry run"
-    echo "  -e, Environment: sandbox|stage|production (default: sandbox)"
+    echo "  -e, Environment: sandbox|stage|production (required)"
     echo "  -p, Product name (required)"
     echo "  -r, Release (required)"
     exit 1
@@ -38,59 +42,95 @@ validate_variable() {
 get_image_config() {
     local image=$1
     local key=$2
-    if [[ "${key}" == "tag" ]]; then
-        # Replace {RELEASE} placeholder in tag_template
-        local tag=$(jq -r ".${PRODUCT}.${image}.tag" "${IMAGES_JSON}")
-        echo "${tag}" | envsubst
-    else
-        jq -r ".${PRODUCT}.${image}.${key}" "${IMAGES_JSON}"
-    fi
+    jq -r ".${PRODUCT}.${image}.${key}" "${IMAGES_JSON}"
 }
 
 # Function to get full image reference
 get_image_reference() {
     local image=$1
     local ecr=$2
-    local registry=$(get_image_config ${image} "registry")
-    local tag=$(get_image_config ${image} "tag")
-    echo "${ecr}/${registry}:${tag}"
+    local registry=$(get_image_config "${image}" "registry")
+    echo "${ecr}/${registry}:${RELEASE}"
 }
 
-# Function to get images from sandbox environment
-get_images_from_sandbox() {
+create_arch_tags() {
+    local image_tag="${1}"
+    local base_repo="${image_tag%:*}"
+    local manifest_json
+    local amd64_digest
+    local arm64_digest
+
+    manifest_json="$(docker buildx imagetools inspect --raw "${image_tag}")"
+    amd64_digest="$(echo "${manifest_json}" | jq -r \
+        '.manifests[] | select(.platform.os=="linux" and .platform.architecture=="amd64") | .digest' \
+        | head -n 1)"
+    arm64_digest="$(echo "${manifest_json}" | jq -r \
+        '.manifests[] | select(.platform.os=="linux" and .platform.architecture=="arm64") | .digest' \
+        | head -n 1)"
+
+    if [[ -z "${amd64_digest}" || -z "${arm64_digest}" ]]; then
+        echo "Error: Unable to resolve amd64/arm64 digests for ${image_tag}"
+        exit 1
+    fi
+
+    docker buildx imagetools create \
+        --tag "${base_repo}:amd64-${RELEASE}" \
+        "${base_repo}@${amd64_digest}"
+    docker buildx imagetools create \
+        --tag "${base_repo}:arm64-${RELEASE}" \
+        "${base_repo}@${arm64_digest}"
+}
+
+# Function to build Docker image
+build_and_push_images() {
     local images=$1
-    aws ecr get-login-password --region ${AWS_REGION} --profile ${SBX_AWS_PROFILE} | \
-        docker login --username AWS --password-stdin ${SBX_ECR_REGISTRY}
+    local image_reference
+    local docker_file
+    local buildx_args
+
+    pushd "${SRC_DIR}"
     for image in ${images}; do
-        local sbx_image_reference=$(get_image_reference ${image} ${SBX_ECR_REGISTRY})
-        local target_image_reference=$(get_image_reference ${image} ${TARGET_ECR_REGISTRY})
-        if docker image inspect ${sbx_image_reference} > /dev/null 2>&1; then
-            echo "Image ${sbx_image_reference} already exists"
-            docker tag ${sbx_image_reference} ${target_image_reference}
+        image_reference=$(get_image_reference "${image}" "${TARGET_ECR_REGISTRY}")
+        docker_file=$(get_image_config "${image}" "docker_file")
+        echo "Building ${image_reference}..."
+        buildx_args=(
+            -f "${docker_file}"
+            --platform "${PLATFORMS}"
+            -t "${image_reference}"
+        )
+
+        if [[ "${dry_run}" == true ]]; then
+            docker buildx build "${buildx_args[@]}" --load .
         else
-            echo "Pulling ${sbx_image_reference}..."
-            docker pull ${sbx_image_reference}
-            docker tag ${sbx_image_reference} ${target_image_reference}
+            echo "Pushing ${image} to ${image_reference}"
+            docker buildx build "${buildx_args[@]}" --push .
+            create_arch_tags "${image_reference}"
+        fi
+    done
+    popd
+}
+
+publish_from_sandbox() {
+    local images=$1
+    local source_reference
+    local target_reference
+
+    for image in ${images}; do
+        source_reference=$(get_image_reference "${image}" "${SANDBOX_ECR_REGISTRY}")
+        target_reference=$(get_image_reference "${image}" "${TARGET_ECR_REGISTRY}")
+
+        if [[ "${dry_run}" == true ]]; then
+            echo "Dry run: promote ${source_reference} -> ${target_reference}"
+            echo "Dry run: create arch tags from ${target_reference}"
+        else
+            docker buildx imagetools create \
+                --tag "${target_reference}" \
+                "${source_reference}"
+            create_arch_tags "${target_reference}"
         fi
     done
 }
 
-# Function to publish Docker images
-push_images() {
-    local images=$1
-    get_images_from_sandbox "${images}"
-    aws ecr get-login-password --region ${AWS_REGION} --profile ${TARGET_AWS_PROFILE} | \
-        docker login --username AWS --password-stdin ${TARGET_ECR_REGISTRY}
-    for image in ${images}; do
-        local image_reference=$(get_image_reference ${image} ${TARGET_ECR_REGISTRY})
-        if [[ "${dry_run}" == "true" ]]; then
-            echo "Dry run: Would push ${image_reference}"
-        else
-            echo "Pushing ${image_reference}..."
-            docker push "${image_reference}"
-        fi
-    done
-}
 
 # Function to get source code
 get_source() {
@@ -111,67 +151,66 @@ get_source() {
     esac
 }
 
-# Function to build Docker images
-build_images() {
-    local images=$1
-    for image in ${images}; do
-        get_image_reference ${image} ${TARGET_ECR_REGISTRY}
-        local image_reference=$(get_image_reference ${image} ${TARGET_ECR_REGISTRY})
-        local docker_file=$(get_image_config ${image} "docker_file")
-        echo "Building ${image_reference}..."
-        pushd ${SRC_DIR}
-        docker build \
-            -f ${docker_file} \
-            --platform=linux/amd64 \
-            -t ${image_reference} .
-        popd
-    done
+prepare_environment() {
+    if ! docker buildx version >/dev/null 2>&1; then
+        echo "Error: docker buildx is required for multi-arch builds"
+        exit 1
+    fi
+
+    if [[ "${dry_run}" == true ]]; then
+        PLATFORMS="linux/amd64"
+    else
+        PLATFORMS="linux/amd64,linux/arm64"
+
+        if [[ "${ENVIRONMENT}" != "sandbox" ]]; then
+            aws ecr get-login-password \
+                --region "${AWS_REGION}" \
+                --profile "${SANDBOX_AWS_PROFILE}" | \
+                docker login --username AWS --password-stdin ${SANDBOX_ECR_REGISTRY}
+        fi
+
+        aws ecr get-login-password \
+            --region "${AWS_REGION}" \
+            --profile "${TARGET_AWS_PROFILE}" | \
+            docker login --username AWS --password-stdin ${TARGET_ECR_REGISTRY}
+    fi
 }
 
 # Main
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 OPTIND=1
 AWS_REGION="us-east-1"  # ECR is always in us-east-1
 ENVIRONMENT="sandbox"
 IMAGES_JSON="${SCRIPT_DIR}/images.json"
-while getopts a:de:p:r: opt
+while getopts de:p:r: opt
 do
     case ${opt} in
-        a) ACTION=${OPTARG}
-           ;;
-        d) dry_run=true
-           ;;
-        e) ENVIRONMENT=${OPTARG}
-           ;;
-        p) PRODUCT=${OPTARG}
-           ;;
-        r) RELEASE=${OPTARG}
-           ;;
-        *) usage
-           ;;
+        d) dry_run=true ;;
+        e) ENVIRONMENT=${OPTARG} ;;
+        p) PRODUCT=${OPTARG} ;;
+        r) RELEASE=${OPTARG} ;;
+        *) usage ;;
     esac
 done
 
-if [[ -z ${PRODUCT} || -z ${RELEASE} || -z ${ACTION} ]]; then
+if [[ -z ${PRODUCT} || -z ${RELEASE} ]]; then
     usage
 fi
-validate_variable "ACTION" "${ACTION}" "build|publish"
+
 validate_variable "ENVIRONMENT" "${ENVIRONMENT}" "sandbox|stage|production"
-
-# Store images list
 images_list=$(jq -r ".${PRODUCT} | keys[]" "${IMAGES_JSON}" | tr '\n' ' ')
-TARGET_AWS_ACCOUNT=$(jq -r ".${ENVIRONMENT}.aws.ACCOUNT" "${SCRIPT_DIR}/../utilities/environments.json")
-TARGET_AWS_PROFILE=$(jq -r ".${ENVIRONMENT}.aws.ROLE_SESSION_NAME" "${SCRIPT_DIR}/../utilities/environments.json")
-TARGET_ECR_REGISTRY=${TARGET_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
-SBX_AWS_ACCOUNT=$(jq -r .sandbox.aws.ACCOUNT "${SCRIPT_DIR}/../utilities/environments.json")
-SBX_AWS_PROFILE=$(jq -r .sandbox.aws.ROLE_SESSION_NAME "${SCRIPT_DIR}/../utilities/environments.json")
-SBX_ECR_REGISTRY=${SBX_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-# Build or get images
-if [[ "${ACTION}" == "build" ]]; then
+SANDBOX_AWS_PROFILE=$(jq -r .sandbox.aws.ROLE_SESSION_NAME "${SCRIPT_DIR}/../utilities/environments.json")
+SANDBOX_AWS_ACCOUNT=$(jq -r .sandbox.aws.ACCOUNT "${SCRIPT_DIR}/../utilities/environments.json")
+SANDBOX_ECR_REGISTRY=${SANDBOX_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
+TARGET_AWS_PROFILE=$(jq -r .${ENVIRONMENT}.aws.ROLE_SESSION_NAME "${SCRIPT_DIR}/../utilities/environments.json")
+TARGET_AWS_ACCOUNT=$(jq -r .${ENVIRONMENT}.aws.ACCOUNT "${SCRIPT_DIR}/../utilities/environments.json")
+TARGET_ECR_REGISTRY=${TARGET_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
+
+prepare_environment
+if [[ "${ENVIRONMENT}" == "sandbox" ]]; then
     get_source
-    build_images "${images_list}"
-fi
-if [[ "${ACTION}" == "publish" ]]; then
-    push_images "${images_list}"
+    build_and_push_images "${images_list}"
+else
+    publish_from_sandbox "${images_list}"
 fi
