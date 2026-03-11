@@ -86,7 +86,7 @@ def delete_image(env, image_name):
     while True:
         try:
             result = couchbaseazure.get_image_by_name(resource_group_name, image_name)
-            if len(result) == 0:
+            if not result:
                 break
             logger.info(f'Waiting for {image_name} to be  deleted...')
             time.sleep(10)
@@ -110,7 +110,7 @@ def delete_image(env, image_name):
     logger.info(f'{image_name} and {gallery_image_version} from {gallery_image_name} are deleted')
 
 
-def create_image_definition(env, image_definition_name):
+def create_image_definition(env, image_definition_name, architecture='x64'):
     '''
     Create an image definition in an Azure account.
     '''
@@ -127,7 +127,7 @@ def create_image_definition(env, image_definition_name):
         offer = re.sub('-\\d+.\\d+.\\d+', '', image_definition_name)
         image_definition = {}
         image_definition['identifier'] = {}
-        image_definition['architecture'] = 'x64'
+        image_definition['architecture'] = architecture
         image_definition['hyper_v_generation'] = "V2"
         image_definition['location'] = 'eastus'
         image_definition['os_state'] = 'Generalized'
@@ -184,6 +184,10 @@ if __name__ == "__main__":
         '--env', type=str, required=True, help='Which environment to create image definition in')
     subparser_create_image_definition.add_argument(
         '--image_definition_name', type=str, required=True, help='The name of image definition')
+    # yes, Azure supports 'Arm64' instead of 'arm64'
+    subparser_create_image_definition.add_argument(
+        '--architecture', type=str, choices=['x64', 'Arm64'], default='x64',
+        help='CPU architecture of image definition: x64 or Arm64')
 
     subparser_release_image = subparsers.add_parser(
         'release_image', help='Add released tag after an image is released to production')
@@ -208,7 +212,7 @@ if __name__ == "__main__":
         get_regions(args.env)
 
     if args.cmd == 'create_image_definition':
-        create_image_definition(args.env, args.image_definition_name)
+        create_image_definition(args.env, args.image_definition_name, args.architecture)
 
     if args.cmd == 'release_image':
         release_image(args.env, args.image_name)
