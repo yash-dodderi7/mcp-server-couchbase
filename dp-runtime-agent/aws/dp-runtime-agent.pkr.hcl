@@ -16,13 +16,10 @@ variable "product_arch" { type = string }
 locals {
   product_name    = "dp-runtime-agent"
   ami_name        = var.ami_name != "" ? var.ami_name : "${local.product_name}-${var.product_version}-${var.product_arch}"
-  process-exporter_version = "0.8.7"
-  process-exporter_package = "process-exporter_${local.process-exporter_version}_linux_${var.product_arch}"
-  node_exporter_version    = "1.9.1"
-  node_exporter_package    = "node_exporter-${local.node_exporter_version}.linux-${var.product_arch}"
 
-  // Use a base image with GPU support, required by model-serving-agent
-  source_ami_name = var.product_arch == "arm64" ? "Deep Learning ARM64 Base OSS Nvidia Driver GPU AMI (Amazon Linux 2)*" : "Deep Learning Base OSS Nvidia Driver AMI (Amazon Linux 2)*"
+  // Use a GPU enabled image as the base, required by model-serving-agent
+  // This is owned by AWS rather than Canonical
+  source_ami_name = var.product_arch == "amd64" ? "Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)*" : "Deep Learning ARM64 Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04)*"
   instance_type = var.product_arch == "arm64" ? "t4g.micro" : "t3.micro"
 }
 
@@ -31,6 +28,17 @@ source "amazon-ebs" "cc" {
   ami_regions   = "${var.ami_regions}"
   instance_type = "${local.instance_type}"
   region        = "${var.region}"
+  ssh_timeout   = "15m"
+  ssh_username    = "ubuntu"
+  aws_polling {
+    delay_seconds = 30
+    max_attempts = 120
+  }
+  metadata_options {
+    http_endpoint = "enabled"
+    http_put_response_hop_limit = "1"
+    http_tokens   = "required"
+  }
   source_ami_filter {
     filters = {
       name                = "${local.source_ami_name}"
@@ -50,7 +58,6 @@ source "amazon-ebs" "cc" {
     creator       = "build-team"
     version       = "${var.product_version}"
   }
-  ssh_username = "ec2-user"
 }
 
 build {
@@ -64,16 +71,23 @@ build {
       "dp-observer.service",
       "node-exporter.service",
       "process-exporter.service",
-      "journald.conf",
-      "provision.sh"
+      "journald.conf"
     ]
   }
+
+  // Create ec2-user which is required by Capella control plane.
+  // Packer AWS builder always connects to the temporary instance
+  // using the default SSH user defined by the base AMI.
+  // It does not support using a different user for the initial connection.
+  // Hence, the temporary instance is provisioned using "ubuntu" user.
+  // ec-user is created afterward.
+  provisioner "shell" {
+    script = "create_user.sh"
+  }
+
   provisioner "shell" {
     environment_vars = [
-      "NODE_EXPORTER_VERSION=${local.node_exporter_version}",
-      "NODE_EXPORTER_PACKAGE=${local.node_exporter_package}",
-      "PROCESS_EXPORTER_VERSION=${local.process-exporter_version}",
-      "PROCESS_EXPORTER_PACKAGE=${local.process-exporter_package}"
+      "PRODUCT_ARCH=${var.product_arch}"
     ]
     pause_before = "5s"
     execute_command = "sudo -E sh -x -c '{{ .Vars }} {{ .Path }}'"
