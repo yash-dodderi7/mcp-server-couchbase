@@ -21,34 +21,32 @@ NODE_EXPORTER_VERSION="1.9.1"
 PROCESS_EXPORTER_PACKAGE="process-exporter_${PROCESS_EXPORTER_VERSION}_linux_${PRODUCT_ARCH}"
 NODE_EXPORTER_PACKAGE="node_exporter-${NODE_EXPORTER_VERSION}.linux-${PRODUCT_ARCH}"
 
-## Run security update
-yum update --security -y
-
-# Update journald
-mv "${TMP_DIR}"/journald.conf /etc/systemd/journald.conf
-chown root:root /etc/systemd/journald.conf
+mv /tmp/journald.conf /etc/systemd/journald.conf
 chmod 755 /etc/systemd/journald.conf
 
-# Create couchbase user
-useradd couchbase && usermod -a -G systemd-journal couchbase && usermod -a -G couchbase ${DEFAULT_USER}
+# run unattended-upgrade to apply kernel and security patches
+# then disable it so that it so that it doesn't cause unexpected side effect in production
+apt update
+unattended-upgrade
+systemctl disable --now unattended-upgrades.service
+sed -i 's/^APT::Periodic::Unattended-Upgrade\s*"\?1"\?;/APT::Periodic::Unattended-Upgrade "0";/' /etc/apt/apt.conf.d/20auto-upgrades
 
-# Disable swap
+
+# Create couchbase user
+id couchbase &>/dev/null || useradd couchbase
+usermod -a -G systemd-journal couchbase
+usermod -a -G couchbase ${DEFAULT_USER}
+
 echo "vm.swappiness = 0" >> /etc/sysctl.conf
 sysctl vm.swappiness=0
 
-# Install couchbase dependent packages
-#   N1QL: tzdata
-#   cbcollect_info:
-#     lsof: lsof
-#     lshw: lshw
-#     sysstat: iostat, sar, mpstat
-#     net-tools: ifconfig, arp, netstat
-#     numactl: numactl
-#     ntp: ntpdate, ntpq
-yum install -y jq lshw lsof net-tools nmap-ncat ntp numactl sysstat tzdata wget
+apt install -y iptables jq lshw lsof ncat net-tools nmap ntp numactl rsync sysstat tzdata wget nvme-cli
 
-# Install Couchbase
-yum install -y "${TMP_DIR}"/"${COUCHBASE_SERVER_PKG}"
+export INSTALL_DONT_START_SERVER=1
+apt install -y "${TMP_DIR}"/"${COUCHBASE_SERVER_PKG}"
+systemctl disable couchbase-server
+mkdir -p /data
+chown -R ${DEFAULT_USER}:${DEFAULT_USER} /data
 
 # Install and start node exporter
 wget "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/${NODE_EXPORTER_PACKAGE}.tar.gz" -P "${TMP_DIR}"/
@@ -58,19 +56,22 @@ mv "${TMP_DIR}"/node-exporter.service /lib/systemd/system/node-exporter.service
 systemctl enable node-exporter.service
 
 # Install and enable process exporter
-wget "https://github.com/ncabatoff/process-exporter/releases/download/v${PROCESS_EXPORTER_VERSION}/${PROCESS_EXPORTER_PACKAGE}.rpm" -P "${TMP_DIR}"/
-yum install -y "${TMP_DIR}"/"${PROCESS_EXPORTER_PACKAGE}".rpm
+wget "https://github.com/ncabatoff/process-exporter/releases/download/v${PROCESS_EXPORTER_VERSION}/${PROCESS_EXPORTER_PACKAGE}.deb" -P "${TMP_DIR}"/
+apt install -y "${TMP_DIR}"/"${PROCESS_EXPORTER_PACKAGE}".deb
 mv "${TMP_DIR}"/process-exporter.service /lib/systemd/system/process-exporter.service
 systemctl enable process-exporter.service
 
-# Install & configure dp-observer
+# Install & configure various agents
 install_agent datastore-agent
 install_agent dp-observer
 install_agent dp-runtime-agent
 
-# cleanup after installations
-yum clean all -y
-rm -rf "${TMP_DIR}"/*.gz
-rm -rf "${TMP_DIR}"/*.service
-rm -rf "${TMP_DIR}"/provision.sh
-rm -rf "${TMP_DIR}"/*.rpm
+# Cleanup leftover files from tmp
+rm -f "${TMP_DIR}"/dp-*
+rm -f "${TMP_DIR}"/*.deb
+rm -f "${TMP_DIR}"/*.gz
+
+# APT cleanup
+apt autoremove -y
+apt clean
+rm -f /var/cache/apt/pkgcache.bin /var/cache/apt/srcpkgcache.bin

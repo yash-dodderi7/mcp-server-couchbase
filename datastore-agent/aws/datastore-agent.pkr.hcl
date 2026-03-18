@@ -17,9 +17,9 @@ variable "ami_regions" { type = list(string) }
 locals {
   couchbase_server_pkg = var.product_pkg_name
   ami_name             = var.ami_name != "" ? var.ami_name : "datastore-agent-${var.product_version}-${var.product_arch}"
-  ami_arch             = var.product_arch == "arm64" ? "arm64" : "x86_64"
-  source_ami_name      = "amzn2-ami-kernel-5.10-hvm-2.0.*-${local.ami_arch}-gp2"
-  instance_type        = var.product_arch == "arm64" ? "t4g.micro" : "t3.micro"
+  ami_arch             = var.product_arch
+  source_ami_name      = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
+  instance_type        = local.ami_arch == "arm64" ? "t4g.micro" : "t3.micro"
 }
 
 source "amazon-ebs" "cc" {
@@ -27,6 +27,17 @@ source "amazon-ebs" "cc" {
   ami_regions   = "${var.ami_regions}"
   instance_type = "${local.instance_type}"
   region        = "${var.region}"
+  ssh_timeout   = "15m"
+  ssh_username    = "ubuntu"
+  aws_polling {
+    delay_seconds = 30
+    max_attempts = 120
+  }
+  metadata_options {
+    http_endpoint = "enabled"
+    http_put_response_hop_limit = "1"
+    http_tokens   = "required"
+  }
   source_ami_filter {
     filters = {
       name                = "${local.source_ami_name}"
@@ -34,7 +45,7 @@ source "amazon-ebs" "cc" {
       virtualization-type = "hvm"
     }
     most_recent = true
-    owners      = ["amazon"]
+    owners      = ["099720109477"] // Canonical
   }
   tags = {
     owner         = "couchbase-capella"
@@ -48,7 +59,6 @@ source "amazon-ebs" "cc" {
     arch          = "${local.ami_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
   }
-  ssh_username = "ec2-user"
 }
 
 build {
@@ -69,6 +79,17 @@ build {
       "provision.sh"
     ]
   }
+
+  // Create ec2-user which is required by Capella control plane.
+  // Packer AWS builder always connects to the temporary instance
+  // using the default SSH user defined by the base AMI.
+  // It does not support ussing a different user for the initial connection.
+  // Hence, the temporary instance is provisioned using "ubuntu" user.
+  // ec-user is created afterward.
+  provisioner "shell" {
+    script = "create_user.sh"
+  }
+
   provisioner "shell" {
     environment_vars = [
       "PRODUCT_ARCH=${var.product_arch}",
