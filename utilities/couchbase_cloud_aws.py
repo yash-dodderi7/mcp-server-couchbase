@@ -5,6 +5,7 @@
 # proper permissions.
 
 import argparse
+from functools import partial
 import logging
 import os
 import sys
@@ -224,8 +225,17 @@ if __name__ == "__main__":
         # Share the image with the destination account so that it can be
         # copied.
         couchbaseaws.share_image(args.ami_name, 'Add', target_aws_account_id)
-        common_utils.concurrent_executor(copy_ami, 25, args.ami_name, '', args.source_profile,
-                                         args.source_region, args.dest_profile, items=dest_regions)
+        # Bind fixed args with partial into a function for concurrent_executor
+        copy_ami_to_region = partial(
+            copy_ami,
+            args.ami_name,
+            '',
+            args.source_profile,
+            args.source_region,
+            args.dest_profile,
+        )
+        # concurrent_executor (function, items, workers=8)
+        common_utils.concurrent_executor(copy_ami_to_region, dest_regions, workers=25)
 
         # For security purpose, make sure the image is no longer shared with
         # the destination account.
@@ -236,11 +246,11 @@ if __name__ == "__main__":
 
     if args.cmd == 'delete_ami':
         ami_name = args.ami_name
-        common_utils.concurrent_executor(delete_ami, 25, ami_name,
-                                         default_aws_profile, items=regions)
+        delete_ami_from_region = partial(delete_ami, ami_name, default_aws_profile)
+        common_utils.concurrent_executor(delete_ami_from_region, regions, workers=25)
     if args.cmd == 'cleanup_snapshots':
-        common_utils.concurrent_executor(
-            cleanup_unattached_snapshots, 25, default_aws_profile, items=regions)
+        cleanup_snapshots_in_region = partial(cleanup_unattached_snapshots, default_aws_profile)
+        common_utils.concurrent_executor(cleanup_snapshots_in_region, regions, workers=25)
 
     if args.cmd == 'get_secret':
         response = aws_session.get_secret(args.secret_name)
@@ -251,5 +261,6 @@ if __name__ == "__main__":
 
     if args.cmd == 'release_ami':
         ami_name = args.ami_name
-        common_utils.concurrent_executor(release_ami, 25, ami_name,
-                                         items=regions)
+        # Bind fixed args with partial into a function for concurrent_executor
+        release_ami_in_region = partial(release_ami, ami_name)
+        common_utils.concurrent_executor(release_ami_in_region, regions, workers=25)

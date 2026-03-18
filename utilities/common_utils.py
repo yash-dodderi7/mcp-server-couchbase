@@ -18,30 +18,32 @@ console_handler = logging.StreamHandler(stream=sys.stdout)
 logger.addHandler(console_handler)
 
 
-def concurrent_executor(func, workers, *args, **kwargs):
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-        futures = [
-            executor.submit(
-                func,
-                *args,
-                value) for value in kwargs['items']]
-        for f in concurrent.futures.as_completed(futures):
-            if f.exception() is not None:
-                sys.exit(f"{f.exception()}")
+def concurrent_executor(func, items, workers=8):
+    items = list(items)
+    if not items:
+        return []
 
+    max_workers = min(len(items), workers)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(func, item): item for item in items}
+        results = []
+        failures = []
+        for future in concurrent.futures.as_completed(futures):
+            item = futures[future]
+            try:
+                results.append(future.result())
+            except Exception as err:
+                failures.append((item, err))
 
-def concurrent_executor_two_lists(func, workers, *args, **kwargs):
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-        for i in kwargs['items1']:
-            futures = [
-                executor.submit(
-                    func,
-                    i,
-                    *args,
-                    j) for j in kwargs['items2']]
-        for f in concurrent.futures.as_completed(futures):
-            if f.exception() is not None:
-                sys.exit(f"{f.exception()}")
+    if failures:
+        func_name = getattr(func, "__name__", str(func))
+        failed_details = ", ".join([f"{item}: {err}" for item, err in failures])
+        sys.exit(
+            f"Concurrent jobs for {func_name} finished with errors "
+            f"(succeeded={len(results)}, failed={len(failures)}): {failed_details}"
+        )
+
+    return results
 
 
 def run_cmd(cmd):
