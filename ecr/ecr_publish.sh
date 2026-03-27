@@ -13,83 +13,66 @@ usage() {
     echo "ECR Image Publishing Script"
     echo "Usage: $0 [OPTIONS]"
     echo "Options:"
-    echo "  -d, Dry run"
-    echo "  -e, Environment: sandbox|stage|production (required)"
-    echo "  -p, Product name (required)"
-    echo "  -r, Release (required)"
+    echo "  -d        Dry run"
+    echo "  -s        Source environment: sandbox|stage|production (required)"
+    echo "  -t        Target environment: sandbox|stage|production (required)"
+    echo "  -p        Product name (required)"
+    echo "  -r        Release (required)"
     exit 1
-}
-
-# Function to validate variable against allowed values
-validate_variable() {
-    local var_name=${1}
-    local var_value=${2}
-    local allowed_pattern=${3}
-
-    IFS='|' read -ra allowed_values <<< "${allowed_pattern}"
-    for allowed in "${allowed_values[@]}"; do
-        if [[ "${var_value}" == "${allowed}" ]]; then
-            return 0
-        fi
-    done
-
-    echo "Invalid ${var_name}: ${var_value}" >&2
-    echo "Allowed values: ${allowed_pattern}" >&2
-    usage
 }
 
 # Function to get image configuration
 get_image_config() {
-    local image=$1
-    local key=$2
-    jq -r ".${PRODUCT}.${image}.${key}" "${IMAGES_JSON}"
+    local image=${1}
+    local key=${2}
+    jq -r --arg product "$PRODUCT" --arg image "$image" --arg key "$key" \
+        '.[$product][$image][$key]' "${IMAGES_JSON}"
 }
 
 # Function to get full image reference
 get_image_reference() {
-    local image=$1
-    local ecr=$2
-    local registry=$(get_image_config "${image}" "registry")
-    echo "${ecr}/${registry}:${RELEASE}"
+    local image=${1}
+    local ecr=${2}
+    local repository=$(get_image_config "${image}" "repository")
+    echo "${ecr}/${repository}:${RELEASE}"
 }
 
 create_arch_tags() {
-    local image_tag="${1}"
-    local base_repo="${image_tag%:*}"
+    local image_ref="${1}"
+    local base_repo="${image_ref%:*}"
     local manifest_json
-    local amd64_digest
-    local arm64_digest
+    local arch_digest
 
-    manifest_json="$(docker buildx imagetools inspect --raw "${image_tag}")"
-    amd64_digest="$(echo "${manifest_json}" | jq -r \
-        '.manifests[] | select(.platform.os=="linux" and .platform.architecture=="amd64") | .digest' \
-        | head -n 1)"
-    arm64_digest="$(echo "${manifest_json}" | jq -r \
-        '.manifests[] | select(.platform.os=="linux" and .platform.architecture=="arm64") | .digest' \
-        | head -n 1)"
 
-    if [[ -z "${amd64_digest}" || -z "${arm64_digest}" ]]; then
-        echo "Error: Unable to resolve amd64/arm64 digests for ${image_tag}"
-        exit 1
+    manifest_json=$(docker buildx imagetools inspect --raw "${image_ref}")
+    if [[ -z "${manifest_json}" ]]; then
+        ERR_IMAGES+=("${image_ref}")
+        echo "Error: Unable to inspect manifest for ${image_ref}"
+        return
     fi
-
-    docker buildx imagetools create \
-        --tag "${base_repo}:amd64-${RELEASE}" \
-        "${base_repo}@${amd64_digest}"
-    docker buildx imagetools create \
-        --tag "${base_repo}:arm64-${RELEASE}" \
-        "${base_repo}@${arm64_digest}"
+    for platform in amd64 arm64; do
+        arch_digest="$(echo "${manifest_json}" | jq -r \
+        ".manifests[] | select(.platform.os==\"linux\" and .platform.architecture==\"${platform##*/}\") | .digest" \
+        | head -n 1)"
+        if [[ -z "${arch_digest}" ]]; then
+            ERR_IMAGES+=("${base_repo}:${platform}-${RELEASE}")
+            echo "Error: Unable to resolve ${platform} digest for ${image_ref}"
+        else
+            docker buildx imagetools create \
+                --tag "${base_repo}:${platform}-${RELEASE}" \
+                "${base_repo}@${arch_digest}"
+        fi
+    done
 }
 
 # Function to build Docker image
 build_and_push_images() {
-    local images=$1
     local image_reference
     local docker_file
     local buildx_args
 
     pushd "${SRC_DIR}"
-    for image in ${images}; do
+    for image in "${IMAGES_ARRAY[@]}"; do
         image_reference=$(get_image_reference "${image}" "${TARGET_ECR_REGISTRY}")
         docker_file=$(get_image_config "${image}" "docker_file")
         echo "Building ${image_reference}..."
@@ -99,33 +82,37 @@ build_and_push_images() {
             -t "${image_reference}"
         )
 
-        if [[ "${dry_run}" == true ]]; then
+        if [[ "${DRY_RUN}" == true ]]; then
             docker buildx build "${buildx_args[@]}" --load .
         else
             echo "Pushing ${image} to ${image_reference}"
             docker buildx build "${buildx_args[@]}" --push .
+            # Skip creating multi arch tags if RELEASE starts with amd64 or arm64
+            [[ "${RELEASE}" =~ ^amd64.* || "${RELEASE}" =~ ^arm64.* ]] && continue
             create_arch_tags "${image_reference}"
         fi
     done
     popd
 }
 
-publish_from_sandbox() {
-    local images=$1
+publish_images() {
     local source_reference
     local target_reference
-
-    for image in ${images}; do
-        source_reference=$(get_image_reference "${image}" "${SANDBOX_ECR_REGISTRY}")
+    for image in "${IMAGES_ARRAY[@]}"; do
+        source_reference=$(get_image_reference "${image}" "${SOURCE_ECR_REGISTRY}")
         target_reference=$(get_image_reference "${image}" "${TARGET_ECR_REGISTRY}")
-
-        if [[ "${dry_run}" == true ]]; then
-            echo "Dry run: promote ${source_reference} -> ${target_reference}"
-            echo "Dry run: create arch tags from ${target_reference}"
+        buildx_args=(
+            imagetools create
+            --tag "${target_reference}"
+            "${source_reference}"
+        )
+        if [[ "${DRY_RUN}" == true ]]; then
+            printf 'docker buildx %s\n' "${buildx_args[@]}"
+            continue
         else
-            docker buildx imagetools create \
-                --tag "${target_reference}" \
-                "${source_reference}"
+            docker buildx "${buildx_args[@]}"
+            # Skip creating multi arch tags if RELEASE starts with amd64 or arm64
+            [[ "${RELEASE}" =~ ^amd64.* || "${RELEASE}" =~ ^arm64.* ]] && continue
             create_arch_tags "${target_reference}"
         fi
     done
@@ -141,7 +128,7 @@ get_source() {
             git clone git@github.com:couchbaselabs/vulcan-core.git
             pushd vulcan-core
             git checkout ${RELEASE}
-            export SRC_DIR=`pwd`
+            export SRC_DIR="$(pwd)"
             popd
            ;;
         *)
@@ -157,60 +144,56 @@ prepare_environment() {
         exit 1
     fi
 
-    if [[ "${dry_run}" == true ]]; then
+    if [[ "${DRY_RUN}" == true ]]; then
         PLATFORMS="linux/amd64"
     else
         PLATFORMS="linux/amd64,linux/arm64"
+    fi
+    TARGET_AWS_PROFILE=$(jq -r .${TGT_ENV}.aws.ROLE_SESSION_NAME "${SCRIPT_DIR}/../utilities/environments.json")
+    TARGET_AWS_ACCOUNT=$(jq -r .${TGT_ENV}.aws.ACCOUNT "${SCRIPT_DIR}/../utilities/environments.json")
+    TARGET_ECR_REGISTRY=${TARGET_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
+    aws ecr get-login-password \
+        --region "${AWS_REGION}" \
+        --profile "${TARGET_AWS_PROFILE}" | \
+        docker login --username AWS --password-stdin "${TARGET_ECR_REGISTRY}"
 
-        if [[ "${ENVIRONMENT}" != "sandbox" ]]; then
-            aws ecr get-login-password \
-                --region "${AWS_REGION}" \
-                --profile "${SANDBOX_AWS_PROFILE}" | \
-                docker login --username AWS --password-stdin ${SANDBOX_ECR_REGISTRY}
-        fi
-
+    if [[ "${SRC_ENV}" != "local" ]]; then
+        SOURCE_AWS_PROFILE=$(jq -r .${SRC_ENV}.aws.ROLE_SESSION_NAME "${SCRIPT_DIR}/../utilities/environments.json")
+        SOURCE_AWS_ACCOUNT=$(jq -r .${SRC_ENV}.aws.ACCOUNT "${SCRIPT_DIR}/../utilities/environments.json")
+        SOURCE_ECR_REGISTRY=${SOURCE_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
         aws ecr get-login-password \
             --region "${AWS_REGION}" \
-            --profile "${TARGET_AWS_PROFILE}" | \
-            docker login --username AWS --password-stdin ${TARGET_ECR_REGISTRY}
+            --profile "${SOURCE_AWS_PROFILE}" | \
+            docker login --username AWS --password-stdin "${SOURCE_ECR_REGISTRY}"
     fi
 }
 
 # Main
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+source "${SCRIPT_DIR}/../utilities/shell-utils.sh"
+DRY_RUN=false
 OPTIND=1
 AWS_REGION="us-east-1"  # ECR is always in us-east-1
-ENVIRONMENT="sandbox"
 IMAGES_JSON="${SCRIPT_DIR}/images.json"
-while getopts de:p:r: opt
+ERR_IMAGES=()
+while getopts dp:r:s:t: opt
 do
     case ${opt} in
-        d) dry_run=true ;;
-        e) ENVIRONMENT=${OPTARG} ;;
+        d) DRY_RUN=true ;;
         p) PRODUCT=${OPTARG} ;;
         r) RELEASE=${OPTARG} ;;
+        s) SRC_ENV=${OPTARG} ;;
+        t) TGT_ENV=${OPTARG} ;;
         *) usage ;;
     esac
 done
 
-if [[ -z ${PRODUCT} || -z ${RELEASE} ]]; then
-    usage
-fi
-
-validate_variable "ENVIRONMENT" "${ENVIRONMENT}" "sandbox|stage|production"
-images_list=$(jq -r ".${PRODUCT} | keys[]" "${IMAGES_JSON}" | tr '\n' ' ')
-
-SANDBOX_AWS_PROFILE=$(jq -r .sandbox.aws.ROLE_SESSION_NAME "${SCRIPT_DIR}/../utilities/environments.json")
-SANDBOX_AWS_ACCOUNT=$(jq -r .sandbox.aws.ACCOUNT "${SCRIPT_DIR}/../utilities/environments.json")
-SANDBOX_ECR_REGISTRY=${SANDBOX_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
-TARGET_AWS_PROFILE=$(jq -r .${ENVIRONMENT}.aws.ROLE_SESSION_NAME "${SCRIPT_DIR}/../utilities/environments.json")
-TARGET_AWS_ACCOUNT=$(jq -r .${ENVIRONMENT}.aws.ACCOUNT "${SCRIPT_DIR}/../utilities/environments.json")
-TARGET_ECR_REGISTRY=${TARGET_AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
-
+chk_set SRC_ENV TGT_ENV PRODUCT RELEASE
 prepare_environment
-if [[ "${ENVIRONMENT}" == "sandbox" ]]; then
+readarray -t IMAGES_ARRAY < <(jq -r --arg prod "$PRODUCT" '.[$prod] | keys[]' "$IMAGES_JSON")
+if [[ "${SRC_ENV}" == "local" ]]; then
     get_source
-    build_and_push_images "${images_list}"
+    build_and_push_images
 else
-    publish_from_sandbox "${images_list}"
+    publish_images
 fi
