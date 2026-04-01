@@ -33,12 +33,13 @@ def concurrent_executor(func, items, workers=8):
             try:
                 results.append(future.result())
             except Exception as err:
+                logger.error(f"Failed for {item}: {err}")
                 failures.append((item, err))
 
     if failures:
         func_name = getattr(func, "__name__", str(func))
         failed_details = ", ".join([f"{item}: {err}" for item, err in failures])
-        sys.exit(
+        logger.error(
             f"Concurrent jobs for {func_name} finished with errors "
             f"(succeeded={len(results)}, failed={len(failures)}): {failed_details}"
         )
