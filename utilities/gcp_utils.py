@@ -195,7 +195,7 @@ class GCPUtils:
             image=image_name,
             project=self.image_factory_project_id,
         )
-        client.delete(request=request)
+        return client.delete(request=request)
 
 
     def search_image_by_pattern(self, image_filters, exclude_labels=None):

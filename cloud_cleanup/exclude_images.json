@@ -1,0 +1,12 @@
+{
+  "aws": [
+    "couchbase-cloud-server-7-1-3-3480-v1-0-14",
+    "vulcan-metrics-collector-1.0.1-amd64-v1.0.0",
+    "vulcan-metrics-collector-1.0.0-rc3-amd64-v1.0.0"
+  ],
+  "gcp": [
+    "couchbase-cloud-server-7-1-3-3480-v1-0-14"
+  ],
+  "azure": [
+  ]
+}
