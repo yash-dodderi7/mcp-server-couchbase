@@ -144,10 +144,12 @@ prepare_environment() {
         exit 1
     fi
 
-    if [[ "${DRY_RUN}" == true ]]; then
-        PLATFORMS="linux/amd64"
-    else
-        PLATFORMS="linux/amd64,linux/arm64"
+    if [[ -z "$PLATFORMS" ]]; then
+        if [[ "${DRY_RUN}" == true ]]; then
+            PLATFORMS="linux/amd64"
+        else
+            PLATFORMS="linux/amd64,linux/arm64"
+        fi
     fi
     TARGET_AWS_PROFILE=$(jq -r .${TGT_ENV}.aws.ROLE_SESSION_NAME "${SCRIPT_DIR}/../utilities/environments.json")
     TARGET_AWS_ACCOUNT=$(jq -r .${TGT_ENV}.aws.ACCOUNT "${SCRIPT_DIR}/../utilities/environments.json")
