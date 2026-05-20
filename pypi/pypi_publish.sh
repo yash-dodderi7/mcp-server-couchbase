@@ -17,19 +17,24 @@ usage() {
 # Function to get source
 get_source() {
     echo "Getting source..."
+
+    rm -rf ${DIST_DIR}
+    mkdir ${DIST_DIR}
+    if [[ "${VERSION}" != v* ]]; then
+        VERSION="v${VERSION}"
+    fi
+
     case ${PRODUCT} in
         agent-catalog)
-            rm -rf ${DIST_DIR}
-            mkdir ${DIST_DIR}
-            if [[ "${VERSION}" != v* ]]; then
-                VERSION="v${VERSION}"
-            fi
             gh release download ${VERSION} --repo couchbaselabs/agent-catalog -D ${DIST_DIR}
-           ;;
+            ;;
+        agentmem-sdk)
+            gh release download ${VERSION} --repo couchbaselabs/agentmem-sdk -D ${DIST_DIR}
+            ;;
         *)
             echo "Unknown product: ${PRODUCT}"
             exit 1
-           ;;
+            ;;
     esac
 }
 
