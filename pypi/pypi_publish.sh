@@ -1,38 +1,34 @@
 #!/bin/bash
 # PyPI Package Publishing Script
-# This script installs pip and twine using uv, then publishes packages to PyPI or Test PyPI
+# This script installs twine using uv, then publishes packages to PyPI or Test PyPI.
+# Two mutually exclusive modes:
+#   -v VERSION : download pre-built artifacts from a GitHub release and upload them.
+#   -b BRANCH  : clone the source branch, build a wheel, then upload it.
+
 set -e  # Exit on any error
+
 # Help function
 usage() {
     echo "PyPI Publishing Script"
     echo "Usage: $0 [OPTIONS]"
     echo "Options:"
+    echo "  -b, Branch name; build from branch (required for branch mode)"
     echo "  -d, Dry run"
-    echo "  -p, Product name i.e. agent-catalog (required)"
+    echo "  -p, Product name: agent-catalog|agentmemory-sdk (required)"
     echo "  -r, PyPI Repo: testpypi|pypi (required)"
-    echo "  -v, Version (required)"
+    echo "  -v, Version; download from a GitHub release"
+    echo ""
+    echo "  -b and -v are mutually exclusive; exactly one is required."
     exit 1
 }
 
-# Function to get source
-get_source() {
-    echo "Getting source..."
-
-    rm -rf ${DIST_DIR}
-    mkdir ${DIST_DIR}
-    if [[ "${VERSION}" != v* ]]; then
-        VERSION="v${VERSION}"
-    fi
-
+# Map a product to its GitHub repo.
+repo_for_product() {
     case ${PRODUCT} in
-        agent-catalog)
-            gh release download ${VERSION} --repo couchbaselabs/agent-catalog -D ${DIST_DIR}
-            ;;
-        agentmem-sdk)
-            gh release download ${VERSION} --repo couchbaselabs/agentmem-sdk -D ${DIST_DIR}
-            ;;
+        agent-catalog)    echo "couchbaselabs/agent-catalog" ;;
+        agentmemory-sdk)  echo "couchbaselabs/agentmemory-sdk" ;;
         *)
-            echo "Unknown product: ${PRODUCT}"
+            echo "Unknown product: ${PRODUCT}" >&2
             exit 1
             ;;
     esac
@@ -46,10 +42,41 @@ prepare_environment() {
     export PATH=`pwd`/install/gh-${GH_VERSION}/bin:${PATH}
 }
 
+# Function to get source
+get_source() {
+    echo "Getting source..."
+    local repo
+    repo=$(repo_for_product)
+    rm -rf ${DIST_DIR}
+
+    if [[ "${MODE}" == "branch" ]]; then
+        gh repo clone ${repo} ${DIST_DIR} -- --branch ${BRANCH} --depth 1
+    else
+        mkdir ${DIST_DIR}
+        if [[ "${VERSION}" != v* ]]; then
+            VERSION="v${VERSION}"
+        fi
+        gh release download ${VERSION} --repo ${repo} -D ${DIST_DIR}
+    fi
+}
+
+# Function to build packages (branch mode only)
+build_packages() {
+    echo "Building packages..."
+    pushd ${DIST_DIR}
+    uv build --wheel
+    popd
+}
+
 # Function to upload to PyPI
 upload_packages() {
-    for package in ${DIST_DIR}/*; do
-        echo "Uploading ${package} to ${PYPI_REPO}..."
+    pushd ${DIST_DIR}
+    if [[ "${MODE}" == "branch" ]]; then
+        UPLOAD_GLOB="${DIST_DIR}/dist/*.whl"
+    else
+        UPLOAD_GLOB="${DIST_DIR}/*"
+    fi
+    for package in ${UPLOAD_GLOB}; do
         if [[ "${dry_run}" != true ]]; then
             echo "Uploading ${package} to ${PYPI_REPO}..."
             twine upload --repository "${PYPI_REPO}" ${package}
@@ -58,32 +85,56 @@ upload_packages() {
             twine check ${package}
         fi
     done
+    popd
 }
 
 # Main
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 OPTIND=1
-while getopts dp:r:v: opt
+while getopts ":b:dp:r:v:" opt
 do
     case ${opt} in
+        b) MODE=branch
+            if [[ "${OPTARG}" == -* ]]; then   # next token is another flag, not a branch
+                echo "Error: -b requires a branch name"
+                usage
+            else
+                BRANCH=${OPTARG}
+            fi
+            ;;
         d) dry_run=true
             ;;
         p) PRODUCT=${OPTARG}
             ;;
         r) PYPI_REPO=${OPTARG}
             ;;
-        v) VERSION=${OPTARG}
+        v) MODE=release
+            VERSION=${OPTARG}
             if [[ "${VERSION}" == -* ]]; then
                 echo "Error: -v requires a version value, got ${VERSION}"
                 usage
             fi
             ;;
-        *) usage
+        :) # option missing its argument (silent error mode)
+            echo "Error: -${OPTARG} requires a value"
+            usage
+            ;;
+        \?) usage
             ;;
     esac
 done
 
-if [[ -z "${PRODUCT}" || -z "${VERSION}" ]]; then
+if [[ -z "${PRODUCT}" ]]; then
+    usage
+fi
+
+if [[ -n "${VERSION}" && -n "${BRANCH}" ]]; then
+    echo "Error: -b and -v are mutually exclusive"
+    usage
+fi
+
+if [[ -z "${MODE}" ]]; then
+    echo "Error: one of -b or -v is required"
     usage
 fi
 
@@ -92,10 +143,12 @@ if [[ "${PYPI_REPO}" != "pypi" && "${PYPI_REPO}" != "testpypi" ]]; then
     usage
 fi
 
-
 PYTHON_VERSION=${PYTHON_VERSION:-3.12} # default Python version to 3.12 if not set.
-GH_VERSION=${GH_VERSION:-2.79.0} # default Python version to 3.12 if not set.
+GH_VERSION=${GH_VERSION:-2.79.0} # default gh version if not set.
 DIST_DIR=${SCRIPT_DIR}/dist
 prepare_environment
 get_source
+if [[ "${MODE}" == "branch" ]]; then
+    build_packages
+fi
 upload_packages
