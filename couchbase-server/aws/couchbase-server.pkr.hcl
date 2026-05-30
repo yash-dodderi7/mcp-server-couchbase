@@ -21,7 +21,7 @@ locals {
   ami_arch = var.product_arch
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t3.micro"
   exporter_arch = var.product_arch
-  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
+  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-20260515"
   product_service = var.ns_server_profile == "analytics_provisioned" ? "enterprise-analytics" : "couchbase-server"
 }
 

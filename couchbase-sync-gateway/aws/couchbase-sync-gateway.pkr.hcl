@@ -31,7 +31,8 @@ variable "region" {
 locals {
   dp_service = "sgw-agent"
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
-  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
+  //source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
+  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-20260515"
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t3.micro"
   exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
   process-exporter_version = "0.7.5"
