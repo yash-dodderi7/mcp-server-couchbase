@@ -130,7 +130,8 @@ build {
       "../common_scripts/journald.conf",
       "../common_scripts/iptables-firewall.sh",
       "../common_scripts/dp-firewall.service",
-      "../common_scripts/disable-mglru.service"
+      "../common_scripts/disable-mglru.service",
+      "../common_scripts/99-disable-resource-disk.cfg"
     ]
   }
   provisioner "shell" {

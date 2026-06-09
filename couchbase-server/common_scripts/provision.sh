@@ -92,6 +92,19 @@ if [[ ${CLOUD_PROVIDER} == "gcp" ]]; then
     echo "net.ipv4.tcp_keepalive_probes=9" >> /etc/sysctl.conf
 fi
 
+# In Azure we use some V5 instance types as fallback deployment types, these don't have NVMe volumes but instead have
+# volatile SCSI disks which are typically managed by the 'cloud-init' service. We disable that functionality to allow
+# our agent to manage the disk instead.
+#
+# See https://jira.issues.couchbase.com/browse/AV-133088 for more information.
+if [[ ${PRODUCT_SERVICE} == "enterprise-analytics" &&  ${CLOUD_PROVIDER} == "azure"  ]]; then
+    if test -f "${TMP_DIR}/99-disable-resource-disk.cfg"; then
+        mv "${TMP_DIR}/99-disable-resource-disk.cfg" /etc/cloud/cloud.cfg.d/
+        chown root:root /etc/cloud/cloud.cfg.d/99-disable-resource-disk.cfg
+        chmod 644 /etc/cloud/cloud.cfg.d/99-disable-resource-disk.cfg
+    fi
+fi
+
 # Install couchbase dependent packages
 #   N1QL: tzdata
 #   cbcollect_info:
@@ -193,6 +206,7 @@ fi
 rm -f "${TMP_DIR}"/dp-*
 rm -f "${TMP_DIR}"/*.deb
 rm -f "${TMP_DIR}"/*.gz
+rm -f "${TMP_DIR}/99-disable-resource-disk.cfg" # This is conditionally installed
 
 # APT cleanup
 # AV-133308: purge the old rolling kernel now that provisioning no longer
