@@ -51,6 +51,7 @@ source "azure-arm" "cc-x64" {
     product_version      = "${var.product_version}"
     image_version        = "${var.image_version}"
     agent                = "${var.agent_sha}"
+    kernel               = "6.8"
   }
 
   shared_image_gallery_destination {
@@ -87,6 +88,7 @@ source "azure-arm" "cc-Arm64" {
     product_version      = "${var.product_version}"
     image_version        = "${var.image_version}"
     agent                = "${var.agent_sha}"
+    kernel               = "6.8"
   }
 
   shared_image_gallery_destination {

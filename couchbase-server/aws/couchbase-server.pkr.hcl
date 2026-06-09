@@ -21,7 +21,10 @@ locals {
   ami_arch = var.product_arch
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t3.micro"
   exporter_arch = var.product_arch
-  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-20260515"
+  // AV-133308: the kernel series is enforced in common_scripts/provision.sh
+  // (swap to the GA 6.8 LTS kernel), so the base AMI can track Canonical's
+  // latest again. This also reverts CBD-6720's temporary 20260515 hardcode.
+  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
   product_service = var.ns_server_profile == "analytics_provisioned" ? "enterprise-analytics" : "couchbase-server"
 }
 
@@ -56,6 +59,7 @@ source "amazon-ebs" "cc" {
     arch          = "${local.ami_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
     agent       = "${var.agent_sha}"
+    kernel        = "6.8"
   }
   snapshot_tags = {
     owner         = "couchbase-capella"
@@ -63,6 +67,7 @@ source "amazon-ebs" "cc" {
     arch          = "${local.ami_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
     agent       = "${var.agent_sha}"
+    kernel        = "6.8"
   }
 }
 

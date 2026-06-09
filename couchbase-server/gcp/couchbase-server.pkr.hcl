@@ -54,6 +54,7 @@ source "googlecompute" "cc" {
     version              = "${var.image_version}"
     build                = "${var.product_bld_num}"
     agent                = "${var.agent_sha}"
+    kernel               = "6-8"
   }
 }
 
