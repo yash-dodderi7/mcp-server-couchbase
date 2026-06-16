@@ -70,6 +70,7 @@ source "azure-arm" "cc" {
     arch                 = "${local.product_arch}"
     product_version      = "${var.product_version}"
     image_version        = "${var.image_version}"
+    kernel               = "6.8"
   }
 
   shared_image_gallery_destination {
@@ -156,6 +157,11 @@ build {
     source      = "sgw-firewall.service"
   }
 
+  provisioner "file" {
+    destination = "/tmp/lock-kernel.sh"
+    source      = "../common_scripts/lock-kernel.sh"
+  }
+
 
   provisioner "shell" {
     inline = [
@@ -171,6 +177,9 @@ build {
       // Install dependent packages:
       "sudo apt update",
       "sudo apt install -y bzip2 wget rsync",
+      // AV-133308: lock to the GA 6.8 LTS kernel and pin out the rolling
+      // series before unattended-upgrade can pull a newer one.
+      "sudo bash /tmp/lock-kernel.sh install azure",
       // run unattended-upgrade to apply kernel and security patches
       // then disable it so that it so that it doesn't cause unexpected side effect in production
       "sudo unattended-upgrade",
@@ -220,6 +229,9 @@ build {
       "sudo apt-get install -y fluent-bit",
       "sudo mv /tmp/fluent-bit.service /usr/lib/systemd/system/fluent-bit.service",
       "sudo mv /tmp/audit-fluent-bit.service /usr/lib/systemd/system/audit-fluent-bit.service",
+      // AV-133308: purge the old rolling kernel and assert only 6.8 remains.
+      "sudo bash /tmp/lock-kernel.sh finalize azure",
+      "sudo rm -f /tmp/lock-kernel.sh",
     ]
   }
 }

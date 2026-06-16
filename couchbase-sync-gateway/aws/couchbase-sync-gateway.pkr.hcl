@@ -31,8 +31,10 @@ variable "region" {
 locals {
   dp_service = "sgw-agent"
   ami_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
-  //source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
-  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-20260515"
+  // AV-133308: the kernel series is enforced in lock-kernel.sh (swap to the GA
+  // 6.8 LTS kernel), so the base AMI can track Canonical's latest again. This
+  // also reverts CBD-6720's temporary 20260515 hardcode.
+  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
   instance_type = local.ami_arch == "arm64" ? "t4g.micro" : "t3.micro"
   exporter_arch = var.product_arch == "aarch64" ? "arm64" : "amd64"
   process-exporter_version = "0.7.5"
@@ -61,6 +63,7 @@ source "amazon-ebs" "cc" {
     arch                 = "${var.product_arch}"
     product_version      = "${var.product_version}"
     version              = "${var.product_version}-${var.product_bld_num}"
+    kernel               = "6.8"
   }
   snapshot_tags = {
     owner                = "couchbase-capella"
@@ -68,6 +71,7 @@ source "amazon-ebs" "cc" {
     arch                 = "${var.product_arch}"
     product_version      = "${var.product_version}"
     persion              = "${var.product_version}-${var.product_bld_num}"
+    kernel               = "6.8"
   }
   ssh_username = "ubuntu"
 }
@@ -131,6 +135,11 @@ build {
     source      = "sgw-firewall.service"
   }
 
+  provisioner "file" {
+    destination = "/tmp/lock-kernel.sh"
+    source      = "../common_scripts/lock-kernel.sh"
+  }
+
   provisioner "shell" {
     inline = [
       "sleep 10",
@@ -146,6 +155,9 @@ build {
       // Install dependent packages:
       "sudo apt update",
       "sudo apt install -y bzip2 curl gpg wget rsync",
+      // AV-133308: lock to the GA 6.8 LTS kernel and pin out the rolling
+      // series before unattended-upgrade can pull a newer one.
+      "sudo bash /tmp/lock-kernel.sh install aws",
       // run unattended-upgrade to apply kernel and security patches
       // then disable it so that it so that it doesn't cause unexpected side effect in production
       "sudo unattended-upgrade",
@@ -207,6 +219,9 @@ build {
       "sudo apt-get install -y fluent-bit",
       "sudo mv /tmp/fluent-bit.service /usr/lib/systemd/system/fluent-bit.service",
       "sudo mv /tmp/audit-fluent-bit.service /usr/lib/systemd/system/audit-fluent-bit.service",
+      // AV-133308: purge the old rolling kernel and assert only 6.8 remains.
+      "sudo bash /tmp/lock-kernel.sh finalize aws",
+      "sudo rm -f /tmp/lock-kernel.sh",
     ]
   }
 }
