@@ -18,7 +18,11 @@ locals {
   couchbase_server_pkg = var.product_pkg_name
   ami_name             = var.ami_name != "" ? var.ami_name : "datastore-agent-${var.product_version}-${var.product_arch}"
   ami_arch             = var.product_arch
-  source_ami_name      = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
+  // AV-133308: the kernel series is enforced in common_scripts/provision.sh
+  // (swap to the GA 6.8 LTS kernel), so the base AMI can track Canonical's
+  // latest again. This also reverts CBD-6720's temporary 20260515 hardcode.
+  source_ami_name = "ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-${local.ami_arch}-server-*"
+  kernel               = "6.8"
   instance_type        = local.ami_arch == "arm64" ? "t4g.micro" : "t3.micro"
 }
 
@@ -52,12 +56,14 @@ source "amazon-ebs" "cc" {
     creator       = "build-team"
     arch          = "${local.ami_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
+    kernel        = "${local.kernel}"
   }
   snapshot_tags = {
     owner         = "couchbase-capella"
     creator       = "build-team"
     arch          = "${local.ami_arch}"
     version       = "${var.product_version}-${var.product_bld_num}"
+    kernel        = "${local.kernel}"
   }
 }
 
@@ -92,6 +98,7 @@ build {
 
   provisioner "shell" {
     environment_vars = [
+      "CLOUD_PROVIDER=aws",
       "PRODUCT_ARCH=${var.product_arch}",
       "COUCHBASE_SERVER_PKG=${local.couchbase_server_pkg}"
     ]
