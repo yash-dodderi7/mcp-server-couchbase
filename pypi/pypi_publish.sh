@@ -57,6 +57,7 @@ get_source() {
         if [[ "${VERSION}" != v* ]]; then
             VERSION="v${VERSION}"
         fi
+        echo gh release download ${VERSION} --repo ${repo} -D ${DIST_DIR}
         gh release download ${VERSION} --repo ${repo} -D ${DIST_DIR}
     fi
 }
@@ -73,7 +74,7 @@ build_packages() {
 upload_packages() {
     pushd ${DIST_DIR}
     if [[ "${MODE}" == "branch" ]]; then
-        UPLOAD_GLOB="${DIST_DIR}/dist/*.whl"
+        UPLOAD_GLOB="${DIST_DIR}/*.whl"
     else
         UPLOAD_GLOB="${DIST_DIR}/dist/*.whl"
     fi
