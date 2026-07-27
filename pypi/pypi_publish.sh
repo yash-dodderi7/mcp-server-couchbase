@@ -14,7 +14,7 @@ usage() {
     echo "Options:"
     echo "  -b, Branch name; build from branch (required for branch mode)"
     echo "  -d, Dry run"
-    echo "  -p, Product name: agent-catalog|agentmemory-sdk (required)"
+    echo "  -p, Product name: agent-catalog|agentmemory-sdk|mcp-server-couchbase (required)"
     echo "  -r, PyPI Repo: testpypi|pypi (required)"
     echo "  -v, Version; download from a GitHub release"
     echo ""
@@ -25,8 +25,9 @@ usage() {
 # Map a product to its GitHub repo.
 repo_for_product() {
     case ${PRODUCT} in
-        agent-catalog)    echo "couchbaselabs/agent-catalog" ;;
-        agentmemory-sdk)  echo "couchbaselabs/agentmemory-sdk" ;;
+        agent-catalog)         echo "couchbaselabs/agent-catalog" ;;
+        agentmemory-sdk)       echo "couchbaselabs/agentmemory-sdk" ;;
+        mcp-server-couchbase)  echo "couchbase/mcp-server-couchbase" ;;
         *)
             echo "Unknown product: ${PRODUCT}" >&2
             exit 1
@@ -81,6 +82,10 @@ upload_packages() {
             echo "Uploading ${package} to ${PYPI_REPO}..."
             twine upload --repository "${PYPI_REPO}" ${package}
         else
+            if [[ "${PYPI_REPO}" != "testpypi" ]]; then
+                echo "Error: dry run validation is only supported against testpypi"
+                exit 1
+            fi
             echo "Dry run: Validating ${package}..."
             twine check ${package}
         fi
