@@ -75,7 +75,7 @@ upload_packages() {
     if [[ "${MODE}" == "branch" ]]; then
         UPLOAD_GLOB="${DIST_DIR}/dist/*.whl"
     else
-        UPLOAD_GLOB="${DIST_DIR}/*"
+        UPLOAD_GLOB="${DIST_DIR}/dist/*.whl"
     fi
     for package in ${UPLOAD_GLOB}; do
         if [[ "${dry_run}" != true ]]; then
