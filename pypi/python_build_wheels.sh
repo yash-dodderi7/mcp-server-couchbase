@@ -70,7 +70,7 @@ upload_wheels() {
                 gh release upload ${VERSION} ${wheel} --repo couchbaselabs/agentmem --clobber
                 ;;
             mcp-server-couchbase)
-                gh release upload ${VERSION} ${wheel} --repo couchbase/mcp-server-couchbase --clobber
+                gh release upload ${VERSION} ${wheel} --repo yash-dodderi7/mcp-server-couchbase --clobber
                 ;;
             *)
                 echo "Unknown product: ${product}"
