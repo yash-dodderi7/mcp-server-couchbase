@@ -16,6 +16,7 @@ prepare_environment() {
     echo "Preparing environment..."
     cbdep install gh ${GH_VERSION}
     export PATH=$(pwd)/install/gh-${GH_VERSION}/bin:${PATH}
+    export PATH="/home/couchbase/.rye/shims:${PATH}"
 }
 
 get_release_source() {
