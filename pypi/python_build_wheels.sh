@@ -7,7 +7,7 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo "Options:"
     echo "  -d,           Dry run"
-    echo "  -p <product>, Product to build (agentmem-sdk | agentmem | mcp-server-couchbase)"
+    echo "  -p <product>, Product to build (agentmemory-sdk | agentmemory | mcp-server-couchbase)"
     echo "  -v <version>, Version (required)"
     exit 1
 }
@@ -15,8 +15,7 @@ usage() {
 prepare_environment() {
     echo "Preparing environment..."
     cbdep install gh ${GH_VERSION}
-    export PATH=`pwd`/install/gh-${GH_VERSION}/bin:${PATH}
-    export PATH="/home/couchbase/.rye/shims:${PATH}"
+    export PATH=$(pwd)/install/gh-${GH_VERSION}/bin:${PATH}
 }
 
 get_release_source() {
@@ -54,8 +53,9 @@ get_release_source() {
 
 build_wheels() {
     echo "Building wheels..."
-    cd ${DIST_DIR}
+    pushd ${DIST_DIR}
     uv build --wheel
+    popd
 }
 
 upload_wheels() {
