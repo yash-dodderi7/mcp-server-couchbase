@@ -40,7 +40,7 @@ get_release_source() {
             ;;
         mcp-server-couchbase)
             echo "Downloading MCP server release ${VERSION}..."
-            gh release download ${VERSION} --repo couchbase/mcp-server-couchbase -D ${DIST_DIR} --archive=tar.gz
+            gh release download ${VERSION} --repo yash-dodderi7/mcp-server-couchbase -D ${DIST_DIR} --archive=tar.gz
             ;;
         *)
             echo "Unknown product: ${product}"
