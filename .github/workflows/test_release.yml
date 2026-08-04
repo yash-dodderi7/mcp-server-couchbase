@@ -168,3 +168,12 @@ jobs:
           VERSION: ${{ github.event.inputs.version || github.ref_name }}
           REPO: "testpypi"
           JOB_NAME: "publish-pypi"
+
+      - name: Save version for downstream workflows
+        run: echo "${{ github.event.inputs.version || github.ref_name }}" > version.txt
+
+      - name: Upload version artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-version
+          path: version.txt
