@@ -24,9 +24,8 @@ jobs:
       - name: Trigger Jenkins Job
         run: |
           set -eo pipefail
-          echo "Using Jenkins user: ${JENKINS_USER}"
           # Trigger job and capture queue location
-          queued_job_url=$(curl -v -X POST \
+          queued_job_url=$(curl -X POST \
             "$JENKINS_BASE_URL/job/$JOB_NAME/buildWithParameters" \
             -d "PRODUCT=${PRODUCT}" \
             -d "VERSION=${VERSION}" \

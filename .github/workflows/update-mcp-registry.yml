@@ -1,5 +1,10 @@
 name: Update MCP Registry
 
+# Description:
+# Manually triggered after QE sign-off and production PyPI release.
+# Registry updates are an explicit human action to ensure the public registry
+# only reflects versions that have been fully validated and released.
+
 on:
   workflow_dispatch:
     inputs:
