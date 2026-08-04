@@ -1,19 +1,15 @@
 name: Update MCP Registry
 
 on:
-  workflow_run:
-    workflows: ["Build and Push Docker Image"]
-    types:
-      - completed
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        required: true
+        description: version tag name (e.g. v1.2.3)
 
 jobs:
   check-and-update-registry:
-    # Only run on tag pushes and if the docker workflow succeeded
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      startsWith(github.event.workflow_run.head_branch, 'v')
-
     runs-on: ubuntu-latest
     permissions:
       id-token: write # Required for GitHub OIDC authentication with MCP Registry
@@ -23,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ github.event.inputs.version }}
 
       - name: Wait for PyPI release to complete
         uses: fountainhead/action-wait-for-check@5a908a24814494009c4bb27c242ea38c93c593be # v1.2.0
@@ -31,7 +27,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           checkName: "Build and publish Python distributions to PyPI"
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.inputs.version }}
           timeoutSeconds: 600
           intervalSeconds: 10
 
@@ -44,7 +40,7 @@ jobs:
       - name: Validate version consistency
         id: version
         env:
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_BRANCH: ${{ github.event.inputs.version }}
         run: |
           # Read versions from files
           ROOT_VERSION=$(jq -r '.version' server.json)
