@@ -27,6 +27,7 @@ jobs:
           # Trigger job and capture queue location
           queued_job_url=$(curl -X POST \
             "$JENKINS_BASE_URL/job/$JOB_NAME/buildWithParameters" \
+            -d "PRODUCT=${PRODUCT}" \
             -d "VERSION=${VERSION}" \
             --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
             --fail -s -D - -o /dev/null | grep -i "location:" | cut -d' ' -f2 | tr -d '\r')
@@ -95,6 +96,7 @@ jobs:
           JENKINS_BASE_URL: "https://server.jenkins.couchbase.com"
           JENKINS_USER: ${{ secrets.SERVER_JENKINS_USERNAME }}
           JENKINS_API_TOKEN: ${{ secrets.SERVER_JENKINS_PAT }}
+          PRODUCT: "mcp-server-couchbase"
           VERSION: ${{ github.event.inputs.version || github.ref_name }}
           JOB_NAME: "pypi-test-yash"
 
@@ -110,7 +112,9 @@ jobs:
           # Trigger job and capture queue location
           queued_job_url=$(curl -X POST \
             "$JENKINS_BASE_URL/job/$JOB_NAME/buildWithParameters" \
+            -d "PRODUCT=${PRODUCT}" \
             -d "VERSION=${VERSION}" \
+            -d "REPO=${REPO}" \
             --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
             --fail -s -D - -o /dev/null | grep -i "location:" | cut -d' ' -f2 | tr -d '\r')
 
@@ -158,5 +162,7 @@ jobs:
           JENKINS_BASE_URL: "https://server.jenkins.couchbase.com"
           JENKINS_USER: ${{ secrets.SERVER_JENKINS_USERNAME }}
           JENKINS_API_TOKEN: ${{ secrets.SERVER_JENKINS_PAT }}
+          PRODUCT: "mcp-server-couchbase"
           VERSION: ${{ github.event.inputs.version || github.ref_name }}
-          JOB_NAME: "PLACEHOLDER_TESTPYPI_UPLOAD_JOB" # TODO: replace with actual Jenkins job name for TestPyPI upload
+          REPO: "testpypi"
+          JOB_NAME: "publish-pypi"
