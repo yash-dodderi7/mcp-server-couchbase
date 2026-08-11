@@ -28,7 +28,7 @@ jobs:
           # Trigger job and capture queue location
           queued_job_url=$(curl -X POST \
             "$JENKINS_BASE_URL/job/$JOB_NAME/buildWithParameters" \
-            -d "PRODUCT=${PRODUCT}" \
+            -d "product=${PRODUCT}" \
             -d "VERSION=${VERSION}" \
             --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
             --fail -s -D - -o /dev/null | grep -i "location:" | cut -d' ' -f2 | tr -d '\r')
