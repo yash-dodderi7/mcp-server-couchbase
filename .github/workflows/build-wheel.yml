@@ -99,7 +99,7 @@ jobs:
           JENKINS_API_TOKEN: ${{ secrets.SERVER_JENKINS_PAT }}
           PRODUCT: "mcp-server-couchbase"
           VERSION: ${{ github.event.inputs.version || github.ref_name }}
-          JOB_NAME: "wheel-build"
+          JOB_NAME: "pypi-test-yash"
 
       - name: Save version for downstream workflows
         run: echo "${{ github.event.inputs.version || github.ref_name }}" > version.txt
