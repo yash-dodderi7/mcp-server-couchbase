@@ -1,174 +1,174 @@
-name: Update MCP Registry
-
-# Description:
-# Manually triggered after QE sign-off and production PyPI release.
-# Registry updates are an explicit human action to ensure the public registry
-# only reflects versions that have been fully validated and released.
-
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        type: string
-        required: true
-        description: version tag name (e.g. v1.2.3)
-
-jobs:
-  check-and-update-registry:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write # Required for GitHub OIDC authentication with MCP Registry
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ github.event.inputs.version }}
-
-      - name: Wait for PyPI release to complete
-        uses: fountainhead/action-wait-for-check@5a908a24814494009c4bb27c242ea38c93c593be # v1.2.0
-        id: wait-for-pypi
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: "Build and publish Python distributions to PyPI"
-          ref: ${{ github.event.inputs.version }}
-          timeoutSeconds: 600
-          intervalSeconds: 10
-
-      - name: Check PyPI release status
-        if: steps.wait-for-pypi.outputs.conclusion != 'success'
-        run: |
-          echo "PyPI release did not succeed. Status: ${{ steps.wait-for-pypi.outputs.conclusion }}"
-          exit 1
-
-      - name: Validate version consistency
-        id: version
-        env:
-          HEAD_BRANCH: ${{ github.event.inputs.version }}
-        run: |
-          # Read versions from files
-          ROOT_VERSION=$(jq -r '.version' server.json)
-          # Only get versions from packages that have a version field (exclude null/empty)
-          PACKAGE_VERSIONS=$(jq -r '.packages[] | select(.version != null) | .version' server.json | sort -u)
-          PYPROJECT_VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          # Get tag from the triggering workflow (Docker), not current workflow
-          # Use environment variable to prevent code injection
-          TAG_VERSION=${HEAD_BRANCH#v}
-
-          echo "Version Check:"
-          echo "  server.json root:    $ROOT_VERSION"
-          echo "  server.json packages:"
-          jq -r '.packages[] |
-            if .version != null then
-              "     - \(.registryType):\(.identifier) = \(.version)"
-            else
-              "     - \(.registryType):\(.identifier) (no version field)"
-            end' server.json
-          echo "  pyproject.toml:      $PYPROJECT_VERSION"
-          echo "  Git tag:             $TAG_VERSION"
-          echo ""
-
-          # Check if all package versions match root version (only for packages with version field)
-          MISMATCH=false
-          if [ -n "$PACKAGE_VERSIONS" ]; then
-            while IFS= read -r pkg_ver; do
-              if [ "$pkg_ver" != "$ROOT_VERSION" ]; then
-                echo "ERROR: Package version ($pkg_ver) doesn't match root version ($ROOT_VERSION)"
-                MISMATCH=true
-              fi
-            done <<< "$PACKAGE_VERSIONS"
-          fi
-
-          if [ "$MISMATCH" = true ]; then
-            echo ""
-            echo "Fix: Update server.json so all package versions match the root version"
-            exit 1
-          fi
-
-          # Check if root version matches tag
-          if [ "$ROOT_VERSION" != "$TAG_VERSION" ]; then
-            echo "ERROR: server.json version ($ROOT_VERSION) doesn't match tag ($TAG_VERSION)"
-            echo "Fix: Update server.json root version to match the tag"
-            exit 1
-          fi
-
-          # Warn if pyproject.toml doesn't match
-          if [ "$PYPROJECT_VERSION" != "$TAG_VERSION" ]; then
-            echo "WARNING: pyproject.toml version ($PYPROJECT_VERSION) doesn't match tag ($TAG_VERSION)"
-            echo "This may cause PyPI issues"
-          fi
-
-          # Check Docker image tags in OCI identifiers
-          echo ""
-          echo "Checking Docker image tags..."
-          OCI_PACKAGES=$(jq -r '.packages[] | select(.registryType == "oci") | .identifier' server.json)
-          if [ -n "$OCI_PACKAGES" ]; then
-            OCI_TAG_MISMATCH=false
-            while IFS= read -r oci_id; do
-              # Extract tag from identifier (everything after last :)
-              IMAGE_TAG="${oci_id##*:}"
-              echo "  - Image: $oci_id"
-              echo "    Tag: $IMAGE_TAG"
-
-              if [ "$IMAGE_TAG" != "$ROOT_VERSION" ]; then
-                echo "    ERROR: Docker image tag ($IMAGE_TAG) doesn't match version ($ROOT_VERSION)"
-                OCI_TAG_MISMATCH=true
-              else
-                echo "    Tag matches"
-              fi
-            done <<< "$OCI_PACKAGES"
-
-            if [ "$OCI_TAG_MISMATCH" = true ]; then
-              echo ""
-              echo "Fix: Update Docker image tags in server.json to match the version"
-              exit 1
-            fi
-          fi
-
-          echo ""
-          echo "All version checks passed!"
-          echo "version=$ROOT_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      - name: Install MCP Publisher
-        # Pin the version (no "latest") and cryptographically verify the download
-        # against its upstream Sigstore signature before running it. The binary runs
-        # with the registry publishing (OIDC) token, so an unverified/moving artifact
-        # would be a token-exfiltration path. We verify the keyless signature was
-        # produced by modelcontextprotocol/registry's own release.yml workflow at the
-        # pinned tag (Fulcio identity + GitHub OIDC issuer), which proves provenance
-        # rather than just matching a self-derived hash -- and needs no per-version
-        # checksum maintenance. cosign exits non-zero (job fails closed) on any
-        # mismatch. To upgrade, bump MCP_PUBLISHER_VERSION only.
-        env:
-          MCP_PUBLISHER_VERSION: v1.7.9
-          MCP_PUBLISHER_ASSET: mcp-publisher_linux_amd64.tar.gz
-        run: |
-          set -euo pipefail
-          base="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
-          curl -fsSL -o "$MCP_PUBLISHER_ASSET" "${base}/${MCP_PUBLISHER_ASSET}"
-          curl -fsSL -o "${MCP_PUBLISHER_ASSET}.sigstore.json" "${base}/${MCP_PUBLISHER_ASSET}.sigstore.json"
-          cosign verify-blob \
-            --bundle "${MCP_PUBLISHER_ASSET}.sigstore.json" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
-            "$MCP_PUBLISHER_ASSET"
-          tar xzf "$MCP_PUBLISHER_ASSET" mcp-publisher
-
-      - name: Login to MCP Registry
-        run: ./mcp-publisher login github-oidc
-
-      - name: Publish to MCP Registry
-        run: ./mcp-publisher publish
-
-      - name: Notify completion
-        if: success()
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          echo "MCP Registry updated successfully for version $VERSION"
-          echo "Docker image: docker.io/couchbase/mcp-server:$VERSION"
-          echo "PyPI package: couchbase-mcp-server==$VERSION"
+#name: Update MCP Registry
+#
+## Description:
+## Manually triggered after QE sign-off and production PyPI release.
+## Registry updates are an explicit human action to ensure the public registry
+## only reflects versions that have been fully validated and released.
+#
+#on:
+#  workflow_dispatch:
+#    inputs:
+#      version:
+#        type: string
+#        required: true
+#        description: version tag name (e.g. v1.2.3)
+#
+#jobs:
+#  check-and-update-registry:
+#    runs-on: ubuntu-latest
+#    permissions:
+#      id-token: write # Required for GitHub OIDC authentication with MCP Registry
+#      contents: read
+#
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+#        with:
+#          ref: ${{ github.event.inputs.version }}
+#
+#      - name: Wait for PyPI release to complete
+#        uses: fountainhead/action-wait-for-check@5a908a24814494009c4bb27c242ea38c93c593be # v1.2.0
+#        id: wait-for-pypi
+#        with:
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          checkName: "Build and publish Python distributions to PyPI"
+#          ref: ${{ github.event.inputs.version }}
+#          timeoutSeconds: 600
+#          intervalSeconds: 10
+#
+#      - name: Check PyPI release status
+#        if: steps.wait-for-pypi.outputs.conclusion != 'success'
+#        run: |
+#          echo "PyPI release did not succeed. Status: ${{ steps.wait-for-pypi.outputs.conclusion }}"
+#          exit 1
+#
+#      - name: Validate version consistency
+#        id: version
+#        env:
+#          HEAD_BRANCH: ${{ github.event.inputs.version }}
+#        run: |
+#          # Read versions from files
+#          ROOT_VERSION=$(jq -r '.version' server.json)
+#          # Only get versions from packages that have a version field (exclude null/empty)
+#          PACKAGE_VERSIONS=$(jq -r '.packages[] | select(.version != null) | .version' server.json | sort -u)
+#          PYPROJECT_VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+#          # Get tag from the triggering workflow (Docker), not current workflow
+#          # Use environment variable to prevent code injection
+#          TAG_VERSION=${HEAD_BRANCH#v}
+#
+#          echo "Version Check:"
+#          echo "  server.json root:    $ROOT_VERSION"
+#          echo "  server.json packages:"
+#          jq -r '.packages[] |
+#            if .version != null then
+#              "     - \(.registryType):\(.identifier) = \(.version)"
+#            else
+#              "     - \(.registryType):\(.identifier) (no version field)"
+#            end' server.json
+#          echo "  pyproject.toml:      $PYPROJECT_VERSION"
+#          echo "  Git tag:             $TAG_VERSION"
+#          echo ""
+#
+#          # Check if all package versions match root version (only for packages with version field)
+#          MISMATCH=false
+#          if [ -n "$PACKAGE_VERSIONS" ]; then
+#            while IFS= read -r pkg_ver; do
+#              if [ "$pkg_ver" != "$ROOT_VERSION" ]; then
+#                echo "ERROR: Package version ($pkg_ver) doesn't match root version ($ROOT_VERSION)"
+#                MISMATCH=true
+#              fi
+#            done <<< "$PACKAGE_VERSIONS"
+#          fi
+#
+#          if [ "$MISMATCH" = true ]; then
+#            echo ""
+#            echo "Fix: Update server.json so all package versions match the root version"
+#            exit 1
+#          fi
+#
+#          # Check if root version matches tag
+#          if [ "$ROOT_VERSION" != "$TAG_VERSION" ]; then
+#            echo "ERROR: server.json version ($ROOT_VERSION) doesn't match tag ($TAG_VERSION)"
+#            echo "Fix: Update server.json root version to match the tag"
+#            exit 1
+#          fi
+#
+#          # Warn if pyproject.toml doesn't match
+#          if [ "$PYPROJECT_VERSION" != "$TAG_VERSION" ]; then
+#            echo "WARNING: pyproject.toml version ($PYPROJECT_VERSION) doesn't match tag ($TAG_VERSION)"
+#            echo "This may cause PyPI issues"
+#          fi
+#
+#          # Check Docker image tags in OCI identifiers
+#          echo ""
+#          echo "Checking Docker image tags..."
+#          OCI_PACKAGES=$(jq -r '.packages[] | select(.registryType == "oci") | .identifier' server.json)
+#          if [ -n "$OCI_PACKAGES" ]; then
+#            OCI_TAG_MISMATCH=false
+#            while IFS= read -r oci_id; do
+#              # Extract tag from identifier (everything after last :)
+#              IMAGE_TAG="${oci_id##*:}"
+#              echo "  - Image: $oci_id"
+#              echo "    Tag: $IMAGE_TAG"
+#
+#              if [ "$IMAGE_TAG" != "$ROOT_VERSION" ]; then
+#                echo "    ERROR: Docker image tag ($IMAGE_TAG) doesn't match version ($ROOT_VERSION)"
+#                OCI_TAG_MISMATCH=true
+#              else
+#                echo "    Tag matches"
+#              fi
+#            done <<< "$OCI_PACKAGES"
+#
+#            if [ "$OCI_TAG_MISMATCH" = true ]; then
+#              echo ""
+#              echo "Fix: Update Docker image tags in server.json to match the version"
+#              exit 1
+#            fi
+#          fi
+#
+#          echo ""
+#          echo "All version checks passed!"
+#          echo "version=$ROOT_VERSION" >> "$GITHUB_OUTPUT"
+#
+#      - name: Install cosign
+#        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+#
+#      - name: Install MCP Publisher
+#        # Pin the version (no "latest") and cryptographically verify the download
+#        # against its upstream Sigstore signature before running it. The binary runs
+#        # with the registry publishing (OIDC) token, so an unverified/moving artifact
+#        # would be a token-exfiltration path. We verify the keyless signature was
+#        # produced by modelcontextprotocol/registry's own release.yml workflow at the
+#        # pinned tag (Fulcio identity + GitHub OIDC issuer), which proves provenance
+#        # rather than just matching a self-derived hash -- and needs no per-version
+#        # checksum maintenance. cosign exits non-zero (job fails closed) on any
+#        # mismatch. To upgrade, bump MCP_PUBLISHER_VERSION only.
+#        env:
+#          MCP_PUBLISHER_VERSION: v1.7.9
+#          MCP_PUBLISHER_ASSET: mcp-publisher_linux_amd64.tar.gz
+#        run: |
+#          set -euo pipefail
+#          base="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+#          curl -fsSL -o "$MCP_PUBLISHER_ASSET" "${base}/${MCP_PUBLISHER_ASSET}"
+#          curl -fsSL -o "${MCP_PUBLISHER_ASSET}.sigstore.json" "${base}/${MCP_PUBLISHER_ASSET}.sigstore.json"
+#          cosign verify-blob \
+#            --bundle "${MCP_PUBLISHER_ASSET}.sigstore.json" \
+#            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+#            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+#            "$MCP_PUBLISHER_ASSET"
+#          tar xzf "$MCP_PUBLISHER_ASSET" mcp-publisher
+#
+#      - name: Login to MCP Registry
+#        run: ./mcp-publisher login github-oidc
+#
+#      - name: Publish to MCP Registry
+#        run: ./mcp-publisher publish
+#
+#      - name: Notify completion
+#        if: success()
+#        env:
+#          VERSION: ${{ steps.version.outputs.version }}
+#        run: |
+#          echo "MCP Registry updated successfully for version $VERSION"
+#          echo "Docker image: docker.io/couchbase/mcp-server:$VERSION"
+#          echo "PyPI package: couchbase-mcp-server==$VERSION"
