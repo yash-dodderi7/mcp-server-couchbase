@@ -95,7 +95,7 @@ jobs:
           PRODUCT: "mcp-server-couchbase"
           VERSION: ${{ github.event.inputs.version || steps.artifact-version.outputs.version || github.event.workflow_run.head_branch }}
           REPO: "testpypi"
-          JOB_NAME: "publish-pyp"
+          JOB_NAME: "publish-pypi"
 
       - name: Save version for downstream workflows
         run: echo "${{ github.event.inputs.version || steps.artifact-version.outputs.version || github.event.workflow_run.head_branch }}" > version.txt
