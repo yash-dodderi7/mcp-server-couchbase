@@ -21,9 +21,19 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check if stable release
+        id: check-stable
+        run: |
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_stable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_stable=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Generate changelog and create release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           generate_release_notes: true
-          prerelease: false
+          prerelease: ${{ steps.check-stable.outputs.is_stable == 'false' }}
           tag_name: ${{ github.event.inputs.version || github.ref_name }}
