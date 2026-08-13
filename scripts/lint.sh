@@ -26,3 +26,4 @@ echo ""
 echo "To auto-fix issues, run:"
 echo "  ruff check src/ --fix"
 echo "  ruff format src/"
+# lololo
