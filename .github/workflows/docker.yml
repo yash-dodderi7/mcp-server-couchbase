@@ -9,7 +9,7 @@ name: Build and Push Docker Image
 
 on:
   workflow_run:
-    workflows: ["PyPI Release"]
+    workflows: ["PyPI Upload"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -17,6 +17,9 @@ on:
         type: string
         required: true
         description: version tag name
+
+permissions:
+  contents: read
 
 jobs:
   publish-docker-image:
