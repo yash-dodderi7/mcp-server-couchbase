@@ -117,7 +117,7 @@ jobs:
           JENKINS_API_TOKEN: ${{ secrets.SERVER_JENKINS_PAT }}
           PRODUCT: "mcp-server-couchbase"
           VERSION: ${{ github.event.inputs.version || steps.artifact-version.outputs.version || github.event.workflow_run.head_branch }}
-          REPO: "pypi"
+          REPO: "testpypi"
           JOB_NAME: "PyPI-publish"
 
       - name: Save version for downstream workflows
