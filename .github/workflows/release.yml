@@ -1,4 +1,4 @@
-name: PyPI Release
+name: Release
 
 # Description:
 # Generates changelog and creates a GitHub release on version tag pushes.
