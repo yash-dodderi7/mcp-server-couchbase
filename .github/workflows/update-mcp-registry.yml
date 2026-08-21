@@ -1,20 +1,18 @@
 #name: Update MCP Registry
 #
-## Description:
-## Manually triggered after QE sign-off and production PyPI release.
-## Registry updates are an explicit human action to ensure the public registry
-## only reflects versions that have been fully validated and released.
-#
 #on:
-#  workflow_dispatch:
-#    inputs:
-#      version:
-#        type: string
-#        required: true
-#        description: version tag name (e.g. v1.2.3)
+#  workflow_run:
+#    workflows: ["Build and Push Docker Image"]
+#    types:
+#      - completed
 #
 #jobs:
 #  check-and-update-registry:
+#    # Only run on version tag releases and if the docker workflow succeeded
+#    if: |
+#      github.event.workflow_run.conclusion == 'success' &&
+#      startsWith(github.event.workflow_run.head_branch, 'v')
+#
 #    runs-on: ubuntu-latest
 #    permissions:
 #      id-token: write # Required for GitHub OIDC authentication with MCP Registry
@@ -24,28 +22,12 @@
 #      - name: Checkout repository
 #        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 #        with:
-#          ref: ${{ github.event.inputs.version }}
-#
-#      - name: Wait for PyPI release to complete
-#        uses: fountainhead/action-wait-for-check@5a908a24814494009c4bb27c242ea38c93c593be # v1.2.0
-#        id: wait-for-pypi
-#        with:
-#          token: ${{ secrets.GITHUB_TOKEN }}
-#          checkName: "Build and publish Python distributions to PyPI"
-#          ref: ${{ github.event.inputs.version }}
-#          timeoutSeconds: 600
-#          intervalSeconds: 10
-#
-#      - name: Check PyPI release status
-#        if: steps.wait-for-pypi.outputs.conclusion != 'success'
-#        run: |
-#          echo "PyPI release did not succeed. Status: ${{ steps.wait-for-pypi.outputs.conclusion }}"
-#          exit 1
+#          ref: ${{ github.event.workflow_run.head_branch }}
 #
 #      - name: Validate version consistency
 #        id: version
 #        env:
-#          HEAD_BRANCH: ${{ github.event.inputs.version }}
+#          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
 #        run: |
 #          # Read versions from files
 #          ROOT_VERSION=$(jq -r '.version' server.json)

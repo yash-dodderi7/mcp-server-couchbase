@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # Required to download artifacts from other workflow runs
 
 jobs:
   publish-docker-image:
@@ -43,8 +44,9 @@ jobs:
 
       - name: Check if stable release
         id: check-stable
+        env:
+          VERSION: ${{ github.event.inputs.version || steps.artifact-version.outputs.version || github.event.workflow_run.head_branch }}
         run: |
-          VERSION="${{ github.event.inputs.version || steps.artifact-version.outputs.version || github.event.workflow_run.head_branch }}"
           echo "Checking version: $VERSION"
           if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "is_stable=true" >> "$GITHUB_OUTPUT"

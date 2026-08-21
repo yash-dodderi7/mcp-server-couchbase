@@ -2,12 +2,11 @@ name: PyPI Upload
 
 # Description:
 # Triggered automatically after the Build Wheel workflow succeeds,
-# or manually via workflow_dispatch after QE sign-off on TestPyPI.
 # Triggers a Jenkins job to publish the wheel to the production PyPI registry.
 
 on:
   workflow_run:
-    workflows: ["Build Wheel"]
+    workflows: ["Release"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -26,7 +25,7 @@ jobs:
     timeout-minutes: 60
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
-      contents: write
+      actions: read # Required to download artifacts from other workflow runs
     steps:
       - name: Download version artifact
         if: github.event_name == 'workflow_run'
@@ -124,7 +123,9 @@ jobs:
           JOB_NAME: "PyPI-publish"
 
       - name: Save version for downstream workflows
-        run: echo "${{ github.event.inputs.version || steps.artifact-version.outputs.version || github.event.workflow_run.head_branch }}" > version.txt
+        env:
+          VERSION: ${{ github.event.inputs.version || steps.artifact-version.outputs.version || github.event.workflow_run.head_branch }}
+        run: echo "$VERSION" > version.txt
 
       - name: Upload version artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

@@ -7,7 +7,7 @@ name: Test PyPI Release
 
 on:
   workflow_run:
-    workflows: ["Build Wheel"]
+    workflows: ["Release"]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # Required to download artifacts from other workflow runs
 
 jobs:
   upload-to-testpypi:
@@ -91,6 +92,27 @@ jobs:
           fi
 
           echo "Build started. Check progress at: ${build_url}"
+
+          echo "Polling for build completion..."
+          while true; do
+            response=$(curl -s --user "${JENKINS_USER}:${JENKINS_API_TOKEN}" \
+              "${build_url}/api/json")
+            building=$(echo "$response" | jq -r .building)
+
+            if [[ "$building" == "false" ]]; then
+              result=$(echo "$response" | jq -r .result)
+              echo "Build finished with result: ${result}"
+
+              if [[ "$result" != "SUCCESS" ]]; then
+                echo "Jenkins build did not succeed. Check details at: ${build_url}"
+                exit 1
+              fi
+              break
+            fi
+
+            echo "Still building... checking again in 30 seconds."
+            sleep 30
+          done
         env:
           JENKINS_BASE_URL: "https://server.jenkins.couchbase.com"
           JENKINS_USER: ${{ secrets.SERVER_JENKINS_USERNAME }}
